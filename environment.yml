@@ -1,0 +1,12 @@
+name: salami
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - zarr
+  - dask
+  - tifffile
+  - numpy
+  - matplotlib
+  - napari
+
