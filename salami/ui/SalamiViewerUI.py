@@ -42,9 +42,8 @@ class SalamiViewer(SalamiViewerUI.Ui_MainWindow, QtWidgets.QMainWindow):
             data = da.from_zarr(tf.imread(os.path.join(data_path, filter_text), aszarr=True, sort=True))
 
             # update viewer
-            self.viewer.layers.clear()
-            self.viewer.add_image(data=data, name="Image")
-
+            # self.viewer.layers.clear()
+            self.viewer.add_image(data=data, name=filter_text)
         except Exception as e:
             napari.utils.notifications.show_info(f"Exception: {e}")
 
