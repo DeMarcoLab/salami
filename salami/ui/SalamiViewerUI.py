@@ -12,6 +12,8 @@ import napari
 import tifffile as tf
 import zarr
 from PyQt5 import QtWidgets
+import dask.array as da
+
 
 class SalamiViewer(SalamiViewerUI.Ui_MainWindow, QtWidgets.QMainWindow):
     def __init__(
@@ -30,7 +32,6 @@ class SalamiViewer(SalamiViewerUI.Ui_MainWindow, QtWidgets.QMainWindow):
 
     def load_data(self):
 
-        import dask.array as da
 
         try:        
             # get paths
