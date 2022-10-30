@@ -1,20 +1,15 @@
-
-
-# image viewer
-
-import glob
-from salami.ui.qt import SalamiUI
-
 import logging
 import os
+
 import napari
-
-import tifffile as tf
-import zarr
-from PyQt5 import QtWidgets
-import dask.array as da
-
+import napari.utils.notifications
+from fibsem.structures import BeamType
+from fibsem.ui import utils as ui_utils
 from fibsem.ui.FibsemImageSettingsWidget import FibsemImageSettingsWidget
+from fibsem.ui.FibsemMovementWidget import FibsemMovementWidget
+from PyQt5 import QtWidgets
+from salami.ui.qt import SalamiUI
+
 
 class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
     def __init__(
@@ -28,9 +23,13 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
 
         self.update_ui()
 
-        self.img_settings = FibsemImageSettingsWidget()
-        self.gridLayout.addWidget(self.img_settings, 2, 0)
-        self.label_image_settings_placeholder.deleteLater()
+        # reusable components
+        self.image_widget = FibsemImageSettingsWidget()
+        self.movement_widget = FibsemMovementWidget()
+        
+        self.gridLayout_imaging_tab.addWidget(self.image_widget, 0, 0)
+        self.gridLayout_movement_tab.addWidget(self.movement_widget, 0, 0)
+
 
     def setup_connections(self):
 
@@ -43,11 +42,11 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
 
         import numpy as np
 
-        eb_image = np.random.random(size=(1024, 1536))
-        ib_image = np.random.random(size=(1024, 1536))
+        self.eb_image = np.random.random(size=(1024, 1536))
+        self.ib_image = np.random.random(size=(1024, 1536))
 
-        self.eb_layer = self.viewer.add_image(eb_image, name="Electron Image")
-        self.ib_layer = self.viewer.add_image(ib_image, name="Ion Image")
+        self.eb_layer = self.viewer.add_image(self.eb_image, name=BeamType.ELECTRON.name)
+        self.ib_layer = self.viewer.add_image(self.ib_image, name=BeamType.ION.name)
 
 
         self.eb_layer.mouse_double_click_callbacks.append(self._double_click)
@@ -69,17 +68,31 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
 
         coords = layer.world_to_data(event.position)
 
-        print(f"event: {event.type}, layer: {layer}, coords: {coords}, ")
+        # print(f"event: {event.type}, layer: {layer}, coords: {coords}, ")
 
+        # get the relative coords in the beam image
+        coords, beam_type = ui_utils.get_beam_coords_from_click(coords, self.eb_image)
+
+        if beam_type is None:
+            napari.utils.notifications.show_info(f"Please click inside image to move.")
+            return 
+
+        if beam_type is BeamType.ELECTRON:
+            adorned_image = self.eb_image
+        if beam_type is BeamType.ION:
+            adorned_image = self.ib_image
+
+        print(f"beam_type: {beam_type}, coords: {coords}")
+
+    
+    # TODO: disable single click and double click at the same time?
     def _single_click(self, layer, event):
 
         if event.type == "mouse_press":
 
             coords = layer.world_to_data(event.position)
 
-            print(f"event: {event.type}, layer: {layer}, coords: {coords}, ")
-        else:
-            print(f"event: {event.type}")
+            # print(f"event: {event.type}, layer: {layer}, coords: {coords}, ")
 
 
 
@@ -97,3 +110,10 @@ if __name__ == "__main__":
     main()
 
 
+
+
+# move to position
+# setup imaging
+# setup milling
+# run
+# tools
