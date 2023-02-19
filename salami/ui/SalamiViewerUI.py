@@ -45,6 +45,7 @@ class SalamiViewer(SalamiViewerUI.Ui_MainWindow, QtWidgets.QMainWindow):
             # update viewer
             # self.viewer.layers.clear()
             self.viewer.add_image(data=data, name=filter_text)
+            self.viewer.grid.enabled = True
         except Exception as e:
             napari.utils.notifications.show_info(f"Exception: {e}")
 
