@@ -1,5 +1,5 @@
 # salami
-Auto Slice and View 
+salami is a python package for volume electron microscopy
 
 
 
