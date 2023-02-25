@@ -31,18 +31,51 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.microscope, self.settings = utils.setup_session(protocol_path=cfg.PROTOCOL_PATH)
         
         # reusable components
-        self.image_widget = FibsemImageSettingsWidget(microscope=self.microscope, viewer=self.viewer)
-        self.movement_widget = FibsemMovementWidget(microscope =self.microscope, viewer=self.viewer, image_widget=self.image_widget)
-        self.milling_widget = FibsemMillingWidget(microscope=self.microscope, viewer=self.viewer, image_widget=self.image_widget)
+        self.image_widget = FibsemImageSettingsWidget(microscope=self.microscope, image_settings=self.settings.image, viewer=self.viewer)
+        self.movement_widget = FibsemMovementWidget(microscope =self.microscope, settings=self.settings, viewer=self.viewer, image_widget=self.image_widget)
+        self.milling_widget = FibsemMillingWidget(microscope=self.microscope, settings=self.settings, viewer=self.viewer, image_widget=self.image_widget)
         
         self.gridLayout_imaging_tab.addWidget(self.image_widget, 0, 0)
         self.gridLayout_movement_tab.addWidget(self.movement_widget, 0, 0)
         self.gridLayout_milling_tab.addWidget(self.milling_widget, 0, 0)
         
 
+        # set values from protocol
+        self.update_ui_from_protocol()
+
     def setup_connections(self):
 
         self.pushButton.clicked.connect(self.push_button_clicked)
+
+        self.actionCreate_Experiment.triggered.connect(self.create_experiment)
+        self.actionLoad_Experiment.triggered.connect(self.load_experiment)
+        self.actionLoad_Protocol.triggered.connect(self.load_protocol)
+        self.actionSave_Protocol.triggered.connect(self.save_protocol)
+
+    def create_experiment(self):
+        print("create experiment")
+
+    def load_experiment(self):
+        print("load experiment")
+
+    def load_protocol(self):
+        print("load protocol")
+
+    def save_protocol(self):
+        print("save protocol")
+
+    def update_ui_from_protocol(self):
+
+        # protocol settings
+        self.spinBox_n_steps.setValue(int(self.settings.protocol["num_steps"]))
+        self.doubleSpinBox_milling_step_size.setValue(float(self.settings.protocol["step_size_nm"]))
+        
+        # image settings
+
+        # movement settings
+
+        # milling settings
+
 
     def push_button_clicked(self):
         print("button pushed")
@@ -86,6 +119,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
             self.update_ui("view", step_no, n_steps)
             image_settings.label = f"{base_label}_{step_no:04d}"
             eb_image = acquire.new_image(self.microscope, image_settings)
+
             time.sleep(1)
 
             # update pattern
@@ -130,12 +164,12 @@ if __name__ == "__main__":
 """
 TODO:
 - Create experiment
-
 - Load Experiment
 - Save Protocol
 - Load Protocol 
 
 Experiment: 
+    - path
     - DetectorSettings
     - ImageSettings
     - MicroscopeState

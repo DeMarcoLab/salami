@@ -1,5 +1,7 @@
 name: salami
 
+num_steps: 15
+step_size_nm: 150
 
 
 # oxygen
