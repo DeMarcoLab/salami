@@ -1,0 +1,10 @@
+numpy
+numba
+scikit-image
+torch
+torchvision
+matplotlib
+mrcfile
+pyfftw
+
+tqdm
