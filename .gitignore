@@ -134,3 +134,5 @@ salami/protocol/**/*.tif
 salami/*/denoising/*
 salami.code-workspace
 salami/*/raw_imgs/*
+demo_*/**/*
+salami/_version.py
