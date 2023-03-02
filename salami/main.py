@@ -1,15 +1,19 @@
 
 import os
-from fibsem import utils
 import random
 import time
-import salami
-from salami.segmentation.segmentation import run_segmentation
-from salami import analysis as sa
+
+from fibsem import utils
 from fibsem.microscope import FibsemMicroscope
-from fibsem.structures import MicroscopeSettings, FibsemPatternSettings, FibsemMillingSettings, FibsemPattern
-from salami.structures import SalamiSettings
+from fibsem.structures import (FibsemMillingSettings, FibsemPattern,
+                               FibsemPatternSettings, MicroscopeSettings)
+
+import salami
 import salami.config as cfg
+import salami.segmentation.segmentation as ss
+from salami import analysis as sa
+from salami.structures import SalamiSettings
+
 
 def run_collection(microscope: FibsemMicroscope, settings: MicroscopeSettings):
 
@@ -71,8 +75,11 @@ def full_pipeline():
     # print("Restacking and aligning arrays...")
     # time.sleep(random.randint(1, 5))
     print("Running segmentation model...")
-    run_segmentation(path)
-    print("Saving results...")
+    ss.run_segmentation(path)
+    ss.calc_seg_diagnostic(path)
+    
+
+    print("Done!")
 
 
 def main():

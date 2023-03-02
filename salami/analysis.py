@@ -9,11 +9,12 @@ import numpy as np
 import pandas as pd
 import tifffile as tff
 import zarr
-
 from fibsem.structures import (BeamType, FibsemMillingSettings, FibsemPattern,
                                FibsemPatternSettings, MicroscopeSettings)
-from salami.structures import SalamiSettings
+
 from salami.core import run_salami
+from salami.structures import SalamiSettings
+
 
 def create_sweep_parameters(settings: MicroscopeSettings, conf: dict = None):
 
