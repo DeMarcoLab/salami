@@ -3,9 +3,14 @@ import logging
 import napari
 import napari.utils.notifications
 from fibsem import acquire, alignment, constants, milling, utils
-from fibsem.structures import (BeamType, FibsemImage, FibsemMillingSettings,
-                               FibsemPattern, FibsemPatternSettings,
-                               ImageSettings)
+from fibsem.structures import (
+    BeamType,
+    FibsemImage,
+    FibsemMillingSettings,
+    FibsemPattern,
+    FibsemPatternSettings,
+    ImageSettings,
+)
 from fibsem.ui.FibsemImageSettingsWidget import FibsemImageSettingsWidget
 from fibsem.ui.FibsemMillingWidget import FibsemMillingWidget
 from fibsem.ui.FibsemMovementWidget import FibsemMovementWidget
@@ -81,7 +86,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         # protocol settings
         self.spinBox_n_steps.setValue(int(self.settings.protocol["num_steps"]))
         self.doubleSpinBox_milling_step_size.setValue(
-            float(self.settings.protocol["step_size_nm"])
+            float(self.settings.protocol["step_size"]) * constants.SI_TO_NANO
         )
 
         # image settings
@@ -95,6 +100,9 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.pushButton.setEnabled(False)
         self.pushButton.setText("Running...")
         self.pushButton.setStyleSheet("background-color: orange")
+
+        # TODO: disable other microscope interactions
+
         worker = self.run_salami()
         worker.returned.connect(self.salami_finished)  # type: ignore
         worker.yielded.connect(self.update_ui)  # type: ignore
@@ -169,7 +177,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.label_ui_status.setText("Finished.")
         self.pushButton.setEnabled(True)
         self.pushButton.setText("Run Salami")
-        self.pushButton.setStyleSheet("background-color: green")
+        self.pushButton.setStyleSheet("background-color: gray")
 
     def update_ui(self, info: tuple):
         stage, step, total_steps, eb_image, pattern_settings = info
@@ -203,9 +211,9 @@ TODO:
 - Create experiment
 - Load Experiment
 - Save Protocol
-- Load Protocol 
+- Load Protocol
 
-Experiment: 
+Experiment:
     - path
     - DetectorSettings
     - ImageSettings
@@ -215,6 +223,6 @@ Experiment:
     - protocol: dict
 
 Additional Features:
-- Additional Imaging stages    
-    
+- Additional Imaging stages
+
 """

@@ -1,5 +1,5 @@
-
 from dataclasses import dataclass
+
 
 @dataclass
 class SalamiSettings:
@@ -8,5 +8,3 @@ class SalamiSettings:
     _align: bool = True
     _milling: bool = True
     _neutralise: bool = True
-
-

@@ -1,7 +1,20 @@
 name: salami
-
 num_steps: 15
-step_size_nm: 150
+step_size: 150.0e-9
+milling:
+  current: 5.6e-9
+  hfw: 150.0e-6
+  application_file: autolamella # ThermoFisher Only
+  pattern:
+    pattern: Rectangle
+    width: 50.0e-6
+    height: 1.0e-6
+    depth: 8.0e-6
+    centre_x: 0.0
+    centre_y: 0.0
+    rotation: 0.0
+    scan_direction: BottomToTop
+    cleaning_cross_section: True
 
 
 # oxygen

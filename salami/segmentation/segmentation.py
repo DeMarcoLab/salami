@@ -31,7 +31,9 @@ def run_segmentation(path: Path, checkpoint: Path = None) -> None:
     return
 
 
-def run_segmentation_on_image(fname: Path, path: Path, model: sm.SegmentationModel) -> None:
+def run_segmentation_on_image(
+    fname: Path, path: Path, model: sm.SegmentationModel
+) -> None:
     basename = os.path.basename(fname).split(".")[0]
 
     t0 = time.time()
@@ -55,7 +57,8 @@ def run_segmentation_on_image(fname: Path, path: Path, model: sm.SegmentationMod
         f"MODEL_INFERENCE {basename} | LOAD {t1-t0:.3f}s | INFERENCE {t2-t1:.3f}s | SAVE {t3-t2:.3f}s | TOTAL {t3-t0:.3f}s"
     )
 
-def calc_seg_diagnostic(path:Path):
+
+def calc_seg_diagnostic(path: Path):
 
     # load segmentation
     mask = tff.imread(os.path.join(path, cfg.SEG_DIR, "*.tif*"))
@@ -94,7 +97,7 @@ def calc_seg_diagnostic(path:Path):
     ax[0].set_title("Mean Counts")
     ax[0].set_xlabel("Class")
     ax[0].set_ylabel("Count")
-    
+
     ax[1].bar(np.arange(7), mean_percentages, yerr=std_percentages)
     ax[1].set_title("Mean Percentages")
     ax[1].set_xlabel("Class")
@@ -105,6 +108,17 @@ def calc_seg_diagnostic(path:Path):
     ax[2].set_xlabel("Image")
     ax[2].set_ylabel("Count")
     # add legend
-    ax[2].legend(["Background", "Nucleus", "Nucleolus", "Cytoplasm", "Mitochondria", "ER", "Golgi"], loc="upper left")
+    ax[2].legend(
+        [
+            "Background",
+            "Nucleus",
+            "Nucleolus",
+            "Cytoplasm",
+            "Mitochondria",
+            "ER",
+            "Golgi",
+        ],
+        loc="upper left",
+    )
 
     plt.show()

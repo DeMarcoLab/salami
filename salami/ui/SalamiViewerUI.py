@@ -1,5 +1,3 @@
-
-
 # image viewer
 
 import glob
@@ -16,9 +14,7 @@ import dask.array as da
 
 
 class SalamiViewer(SalamiViewerUI.Ui_MainWindow, QtWidgets.QMainWindow):
-    def __init__(
-        self,viewer: napari.Viewer
-    ):
+    def __init__(self, viewer: napari.Viewer):
         super(SalamiViewer, self).__init__()
         self.setupUi(self)
         self.viewer = viewer
@@ -29,18 +25,18 @@ class SalamiViewer(SalamiViewerUI.Ui_MainWindow, QtWidgets.QMainWindow):
 
         self.pushButton_load_data.clicked.connect(self.load_data)
 
-
     def load_data(self):
 
-
-        try:        
+        try:
             # get paths
             data_path = self.lineEdit_data_path.text()
             filter_text = self.lineEdit_filter.text()
 
             # load data
             # TODO: fix the sorting
-            data = da.from_zarr(tf.imread(os.path.join(data_path, filter_text), aszarr=True, sort=True))
+            data = da.from_zarr(
+                tf.imread(os.path.join(data_path, filter_text), aszarr=True, sort=True)
+            )
 
             # update viewer
             # self.viewer.layers.clear()
@@ -62,5 +58,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

@@ -8,6 +8,7 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
@@ -22,7 +23,9 @@ class Ui_MainWindow(object):
         self.label_imaging = QtWidgets.QLabel(self.centralwidget)
         self.label_imaging.setObjectName("label_imaging")
         self.gridLayout.addWidget(self.label_imaging, 2, 0, 1, 2)
-        spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem = QtWidgets.QSpacerItem(
+            20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.gridLayout.addItem(spacerItem, 8, 0, 1, 1)
         self.pushButton = QtWidgets.QPushButton(self.centralwidget)
         self.pushButton.setObjectName("pushButton")
@@ -48,7 +51,9 @@ class Ui_MainWindow(object):
         self.doubleSpinBox_milling_step_size.setMaximum(5000.0)
         self.doubleSpinBox_milling_step_size.setSingleStep(1.0)
         self.doubleSpinBox_milling_step_size.setProperty("value", 100.0)
-        self.doubleSpinBox_milling_step_size.setObjectName("doubleSpinBox_milling_step_size")
+        self.doubleSpinBox_milling_step_size.setObjectName(
+            "doubleSpinBox_milling_step_size"
+        )
         self.gridLayout_2.addWidget(self.doubleSpinBox_milling_step_size, 1, 1, 1, 1)
         self.spinBox_n_steps = QtWidgets.QSpinBox(self.general)
         self.spinBox_n_steps.setMinimum(1)
@@ -62,7 +67,9 @@ class Ui_MainWindow(object):
         self.label_milling_step_size = QtWidgets.QLabel(self.general)
         self.label_milling_step_size.setObjectName("label_milling_step_size")
         self.gridLayout_2.addWidget(self.label_milling_step_size, 1, 0, 1, 1)
-        spacerItem1 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem1 = QtWidgets.QSpacerItem(
+            20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
+        )
         self.gridLayout_2.addItem(spacerItem1, 2, 0, 1, 2)
         self.tabWidget.addTab(self.general, "")
         self.imaging = QtWidgets.QWidget()
@@ -120,15 +127,26 @@ class Ui_MainWindow(object):
         self.pushButton.setText(_translate("MainWindow", "Run Salami"))
         self.label_title.setText(_translate("MainWindow", "Salami"))
         self.label_n_steps.setText(_translate("MainWindow", "Number of Steps"))
-        self.label_milling_step_size.setText(_translate("MainWindow", "Milling Step Size (nm)"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.general), _translate("MainWindow", "General"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.imaging), _translate("MainWindow", "Image"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.movement), _translate("MainWindow", "Movement"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.milling), _translate("MainWindow", "Milling"))
+        self.label_milling_step_size.setText(
+            _translate("MainWindow", "Milling Step Size (nm)")
+        )
+        self.tabWidget.setTabText(
+            self.tabWidget.indexOf(self.general), _translate("MainWindow", "General")
+        )
+        self.tabWidget.setTabText(
+            self.tabWidget.indexOf(self.imaging), _translate("MainWindow", "Image")
+        )
+        self.tabWidget.setTabText(
+            self.tabWidget.indexOf(self.movement), _translate("MainWindow", "Movement")
+        )
+        self.tabWidget.setTabText(
+            self.tabWidget.indexOf(self.milling), _translate("MainWindow", "Milling")
+        )
         self.label_ui_status.setText(_translate("MainWindow", "Status"))
         self.menuFile.setTitle(_translate("MainWindow", "File"))
-        self.actionCreate_Experiment.setText(_translate("MainWindow", "Create Experiment"))
+        self.actionCreate_Experiment.setText(
+            _translate("MainWindow", "Create Experiment")
+        )
         self.actionLoad_Experiment.setText(_translate("MainWindow", "Load Experiment"))
         self.actionLoad_Protocol.setText(_translate("MainWindow", "Load Protocol"))
         self.actionSave_Protocol.setText(_translate("MainWindow", "Save Protocol"))
-

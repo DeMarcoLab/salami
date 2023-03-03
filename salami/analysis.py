@@ -9,8 +9,13 @@ import numpy as np
 import pandas as pd
 import tifffile as tff
 import zarr
-from fibsem.structures import (BeamType, FibsemMillingSettings, FibsemPattern,
-                               FibsemPatternSettings, MicroscopeSettings)
+from fibsem.structures import (
+    BeamType,
+    FibsemMillingSettings,
+    FibsemPattern,
+    FibsemPatternSettings,
+    MicroscopeSettings,
+)
 
 from salami.core import run_salami
 from salami.structures import SalamiSettings
@@ -19,11 +24,11 @@ from salami.structures import SalamiSettings
 def create_sweep_parameters(settings: MicroscopeSettings, conf: dict = None):
 
     # pixelsize (nm), # pixelsize = hfw/n_pixels_x
-    pixelsizes = np.array([1, 2, 3, 4, 5, 6, 8, 10])  # , 12, 14, 16, 18, 20])
-    resolutions = [[1536, 1024], [3072, 2048]]  # , [6144, 4096]]
-    voltages = [1e3, 2e3]
-    currents = [1.6e-9, 0.1e-9, 0.2e-9]  # , 0.4e-9, 0.8e-9]
-    dwell_times = [0.5e-6, 1e-6, 3e-6]  # , 5e-6, 8e-6, 20e-6]
+    pixelsizes = np.array(conf["pixelsize"])  # nm
+    resolutions = conf["resolution"]
+    voltages = conf["voltage"]
+    currents = conf["current"]
+    dwell_times = conf["dwell_time"]
 
     base_path = os.path.join(settings.image.save_path, "data")
 
@@ -151,8 +156,6 @@ def run_sweep_analysis(path: Path, conf: dict = None):
     # - https://academic.oup.com/bioinformatics/article/36/12/3947/5813331?login=true
     # - https://sites.google.com/site/3demimageprocessing/polishem
 
-
-
     path_data = []
     for i, parameters in enumerate(params_dict):
         data_path = parameters["path"]
@@ -214,14 +217,21 @@ def plot_metrics(path: Path, conf: dict = None):
     plt.show()
 
 
-def run_salami_analysis(microscope, settings, path:Path):
-
+def run_salami_analysis(microscope, settings, path: Path):
 
     path = os.path.join(settings.image.save_path, "data")
 
-    df = create_sweep_parameters(settings, None)
+    from fibsem import utils
+    from salami import config as cfg
+
+    conf = utils.load_yaml(cfg.SWEEP_PATH)
+
+    df = create_sweep_parameters(settings, conf)
 
     run_sweep_collection(microscope, settings, break_idx=1)
+
     df = run_sweep_analysis(path)
+
     df = join_df(path)
+
     plot_metrics(path)

@@ -1,20 +1,25 @@
-
 import logging
 
 from fibsem import acquire, alignment, calibration, milling
 from fibsem.microscope import FibsemMicroscope
-from fibsem.structures import (BeamType, FibsemMillingSettings, FibsemPattern,
-                               FibsemPatternSettings, MicroscopeSettings)
+from fibsem.structures import (
+    BeamType,
+    FibsemMillingSettings,
+    FibsemPattern,
+    FibsemPatternSettings,
+    MicroscopeSettings,
+)
 from salami.structures import SalamiSettings
+
 
 def run_salami(
     microscope: FibsemMicroscope,
     settings: MicroscopeSettings,
-    salami_settings: SalamiSettings, 
+    salami_settings: SalamiSettings,
     pattern_settings: FibsemPatternSettings,
     milling_settings: FibsemMillingSettings,
 ):
-    
+
     n_steps = salami_settings.n_steps
     step_size = salami_settings.step_size
 
@@ -62,8 +67,11 @@ def run_salami(
         eb_image = acquire.new_image(microscope, settings.image)
 
         # update pattern
-        pattern_settings.start_y += step_size
-        pattern_settings.end_y += step_size
+        if pattern_settings.pattern is FibsemPattern.Line:
+            pattern_settings.start_y += step_size
+            pattern_settings.end_y += step_size
+        elif pattern_settings.pattern is FibsemPattern.Rectangle:
+            pattern_settings.centre_y += step_size
 
         # # manually adjust working distance
         # wd_diff = step_size * np.sin(np.deg2rad(38))
