@@ -366,7 +366,7 @@ class Trainer:
         plt.savefig(self.fig_loss_fname)
         plt.close(fig)
 
-    def reconstruct(self, noisy_ref, noisy_imgs, filename_rec):
+    def reconstruct(self, noisy_ref, noisy_imgs, filename_rec, path=None):
         if len(noisy_imgs) != self.NN:
             print(
                 "The model was not initiated with the correct number of neighbouring slices"
@@ -465,4 +465,9 @@ class Trainer:
         mic_out /= mic_norm
         np.clip(mic_out, 0, 255, out=mic_out)
         img_out = Image.fromarray(mic_out.astype("uint8"))
-        img_out.save(self.denoise_dir + filename_rec)
+        
+        if path is None:
+            path = self.denoise_dir
+        fname = os.path.join(path, filename_rec)
+        print("path: ", fname)
+        img_out.save(fname)

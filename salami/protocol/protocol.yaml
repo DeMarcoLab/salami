@@ -17,6 +17,14 @@ milling:
     cleaning_cross_section: True
 
 
+denoise:
+  checkpoint: /home/patrick/github/salami/salami/models/model000499.pth
+  device: "cuda:0"
+  depth: 5 
+  nn: 5
+  batch_size: 500
+
+
 # oxygen
 # uc on
 # immersion

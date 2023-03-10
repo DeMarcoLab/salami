@@ -137,3 +137,6 @@ salami/*/raw_imgs/*
 demo_*/**/*
 salami/_version.py
 salami/protocol/salami_*
+denoising_*/*
+data/*
+salami/output/*
