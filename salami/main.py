@@ -3,64 +3,35 @@ import random
 import time
 
 from fibsem import utils
-from fibsem.microscope import FibsemMicroscope
-from fibsem.structures import (
-    FibsemMillingSettings,
-    FibsemPattern,
-    FibsemPatternSettings,
-    MicroscopeSettings,
-)
 
 import salami
 import salami.config as cfg
-import salami.segmentation.segmentation as ss
+import salami.segmentation.segmentation as sseg
 from salami import analysis as sa
+from salami import core as sc
 from salami.structures import SalamiSettings
-
-
-def run_collection(microscope: FibsemMicroscope, settings: MicroscopeSettings):
-
-    # image settings
-    settings.image.save = True
-    settings.image.autocontrast = False
-    settings.image.gamma_enabled = False
-
-    # pattern settings
-    ps = FibsemPatternSettings.__from_dict__(settings.protocol["milling"]["pattern"])
-
-    ms = FibsemMillingSettings.__from_dict__(settings.protocol["milling"])
-
-    # salami settings
-    ss = SalamiSettings(
-        n_steps=int(settings.protocol["num_steps"]),
-        step_size=float(settings.protocol["step_size"]),
-    )
-
-    salami.core.run_salami(microscope, settings, ss, ps, ms)
-
 
 def analysis_pipeline():
 
-    microscope, settings = utils.setup_session(protocol_path=cfg.PROTOCOL_PATH)
-
-    sa.run_salami_analysis(microscope, settings, "data")
+    sa.run_salami_analysis(break_idx=1)
 
 
 def full_pipeline():
 
-    # TODO: protocol
+    # connect to microscope, load settings
     microscope, settings = utils.setup_session(protocol_path=cfg.PROTOCOL_PATH)
-
-    # sa.run_salami_analysis(microscope, settings, "data")
-
-    path = os.path.join(settings.image.save_path, cfg.DATA_DIR)
-    settings.image.save_path = path
-    run_collection(microscope, settings)
-
-    # path = "/home/patrick/github/salami/demo_2023-03-02-06-32-14PM/data"
+    
     # create output directory
+    path = os.path.join(settings.image.save_path, cfg.DATA_DIR)
+    os.makedirs(path, exist_ok=True)
     os.makedirs(os.path.join(path, cfg.DENOISE_DIR), exist_ok=True)
     os.makedirs(os.path.join(path, cfg.SEG_DIR), exist_ok=True)
+    settings.image.save_path = path
+
+    # load salami protocol
+    ss = sc.load_protocol(settings.protocol)
+    # sc.run_salami(microscope, settings, ss)
+
 
     # time.sleep(random.randint(1, 2))
     # print("Loading data...")
@@ -73,18 +44,20 @@ def full_pipeline():
     # time.sleep(random.randint(1, 5))
     # print("Restacking and aligning arrays...")
     # time.sleep(random.randint(1, 5))
+    
     print("Running segmentation model...")
-    # ss.run_segmentation(path)
-    # ss.calc_seg_diagnostic(path)
+    path = "/home/patrick/github/salami/salami/output/denoise"
+    sseg.run_segmentation(path)
+    sseg.calc_seg_diagnostic(path)
 
     print("Done!")
 
 
 def main():
 
-    # full_pipeline()
+    full_pipeline()
 
-    analysis_pipeline()
+    # analysis_pipeline()
 
 
 if __name__ == "__main__":

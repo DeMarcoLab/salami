@@ -159,7 +159,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
                 time.sleep(1)
 
             yield ("Acquiring", step_no, n_steps, None, None)
-            image_settings.label = f"{base_label}_{step_no:04d}"
+            image_settings.label = f"{base_label}_{step_no:06d}"
             eb_image = acquire.new_image(self.microscope, image_settings)
             time.sleep(1)
 

@@ -9,16 +9,35 @@ import numpy as np
 import pandas as pd
 import tifffile as tff
 import zarr
-from fibsem.structures import (
-    BeamType,
-    FibsemMillingSettings,
-    FibsemPattern,
-    FibsemPatternSettings,
-    MicroscopeSettings,
-)
+from fibsem import utils
+from fibsem.structures import (BeamType, FibsemImage, FibsemMillingSettings,
+                               FibsemPattern, FibsemPatternSettings,
+                               MicroscopeSettings)
 
-from salami.core import run_salami
+from salami import config as cfg
+from salami.core import load_protocol, run_salami
 from salami.structures import SalamiSettings
+
+
+def run_salami_analysis(path: Path = None, break_idx: int = 10):
+
+    microscope, settings = utils.setup_session(protocol_path=cfg.PROTOCOL_PATH)
+
+    if path is None:
+        path = os.path.join(settings.image.save_path, "data")
+    
+    ss = load_protocol(settings.protocol)
+
+    # load sweep parameters
+    conf = utils.load_yaml(cfg.SWEEP_PATH)
+    create_sweep_parameters(settings, conf)
+
+    # run sweep
+    run_sweep_collection(microscope, settings, ss=ss, break_idx=break_idx)
+
+    run_sweep_analysis(path)
+
+    plot_metrics(path)
 
 
 def create_sweep_parameters(settings: MicroscopeSettings, conf: dict = None):
@@ -51,7 +70,7 @@ def create_sweep_parameters(settings: MicroscopeSettings, conf: dict = None):
                     for dwell_time in dwell_times:
 
                         idx = len(parameters)
-                        idx = f"{idx:04d}"
+                        idx = f"{idx:06d}"
                         data_path = os.path.join(base_path, idx)
                         os.makedirs(data_path, exist_ok=True)
 
@@ -74,7 +93,7 @@ def create_sweep_parameters(settings: MicroscopeSettings, conf: dict = None):
     return df
 
 
-def run_sweep_collection(microscope, settings, conf: dict = None, break_idx: int = 10):
+def run_sweep_collection(microscope, settings, ss: SalamiSettings, conf: dict = None, break_idx: int = 10):
 
     base_path = os.path.join(settings.image.save_path, "data")
 
@@ -86,23 +105,6 @@ def run_sweep_collection(microscope, settings, conf: dict = None, break_idx: int
     settings.image.autocontrast = False
     settings.image.gamma_enabled = False
 
-    # milling settings
-    start_x, end_x = -8e-6, 33e-6
-    start_y, end_y = -4e-6, -4e-6
-    depth = 8e-6
-
-    pattern_settings = FibsemPatternSettings(
-        pattern=FibsemPattern.Line,
-        start_x=start_x,
-        start_y=start_y,
-        end_x=end_x,
-        end_y=end_y,
-        depth=depth,
-    )
-    milling_settings = FibsemMillingSettings(milling_current=5.6e-9, hfw=150e-6)
-
-    # salami settings
-    ss = SalamiSettings(n_steps=50, step_size=5e-9)
 
     # sweep through all params, collect data
     for i, parameters in enumerate(params_dict):
@@ -130,7 +132,7 @@ def run_sweep_collection(microscope, settings, conf: dict = None, break_idx: int
         settings.image.save_path = data_path
 
         # run salami
-        run_salami(microscope, settings, ss, pattern_settings, milling_settings)
+        run_salami(microscope, settings, ss)
 
         if i == break_idx:
             break
@@ -142,11 +144,13 @@ def run_sweep_analysis(path: Path, conf: dict = None):
 
     params_dict = df.to_dict("records")
 
-    def calc_metric(images):
-        # TODO: replace with frsc
-        # calculate metric
-        metric = da.average(images).compute()
-        return metric + np.random.rand() * 50
+    # def calcFRSC(images):
+    #     # TODO: replace with frsc
+    #     # calculate metric
+    #     metric = da.average(images).compute()
+    #     return metric + np.random.rand() * 50
+
+    calc_metric = calcFRC
 
     # FSC:
     # - https://en.wikipedia.org/wiki/Fourier_shell_correlation
@@ -169,13 +173,24 @@ def run_sweep_analysis(path: Path, conf: dict = None):
             images = da.from_zarr(
                 tff.imread(os.path.join(data_path, "*.tif*"), aszarr=True)
             )
-            metric = calc_metric(images)
+
+            # split image into two halves
+            metrics = []
+            for img in images:
+                img1, img2 = np.split(img, 2, axis=1)
+                metrics.append(calc_metric(img1, img2))
+            # metrics = [calc_metric(img) for img in images]
             n_images = images.shape[0]
+            metric = np.mean(metrics)
 
         path_data.append([data_path, n_images, metric])
 
+    # save metrics
     df = pd.DataFrame(path_data, columns=["path", "n_images", "metric"])
     df.to_csv(os.path.join(path, "metrics.csv"), index=False)
+
+    # join parameters and metrics dataframes
+    df = join_df(path)
 
     return df
 
@@ -217,21 +232,63 @@ def plot_metrics(path: Path, conf: dict = None):
     plt.show()
 
 
-def run_salami_analysis(microscope, settings, path: Path):
 
-    path = os.path.join(settings.image.save_path, "data")
 
-    from fibsem import utils
-    from salami import config as cfg
 
-    conf = utils.load_yaml(cfg.SWEEP_PATH)
+# this is only for one image?
+# see frame.PSNR for two images?
+def calcPSNR(img: FibsemImage, max_val: float = 255.0) -> float:
+    # https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio
+    data = img.data
+    mse = np.mean((data - data.mean()) ** 2)
+    return 10 * np.log10(max_val ** 2 / mse)
 
-    df = create_sweep_parameters(settings, conf)
+def calcFRC(img1: FibsemImage, img2: FibsemImage) -> float:
+    # https://en.wikipedia.org/wiki/Fourier_ring_correlation
+    # https://www.nature.com/articles/s41467-019-11024-z
+    # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3885820/
 
-    run_sweep_collection(microscope, settings, break_idx=1)
+    from fibsem.imaging.utils import normalise_image
 
-    df = run_sweep_analysis(path)
+    # normalise images
+    img1 = normalise_image(img1)
+    img2 = normalise_image(img2)
 
-    df = join_df(path)
+    # apply tukey window
+    # https://en.wikipedia.org/wiki/Tukey_window
+    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.tukey.html
 
-    plot_metrics(path)
+    import scipy.signal as signal
+    window = signal.tukey(img1.shape[0], alpha=0.9)
+    img1 = img1 * window[:, np.newaxis]
+    img2 = img2 * window[:, np.newaxis]
+    
+
+    # calculate the 2D FFT
+    f1 = np.fft.fft2(img1)
+    f2 = np.fft.fft2(img2)
+
+    # calculate the FRC
+    frc = np.abs(f1 * f2.conj()) / np.sqrt(np.abs(f1 * f1.conj()) * np.abs(f2 * f2.conj()))
+
+    # calculate the radial average
+    frc = calc_radial_average(frc)
+
+    # calculate the FRC
+    frc = frc / frc[0]
+
+    return frc
+    
+
+def calc_radial_average(img: np.ndarray) -> float:
+    # https://stackoverflow.com/questions/21242011/most-efficient-way-to-calculate-radial-profile
+
+    y, x = np.indices((img.shape))
+    r = np.sqrt((x - x.mean()) ** 2 + (y - y.mean()) ** 2)
+    r = r.astype(int)
+
+    tbin = np.bincount(r.ravel(), img.ravel())
+    nr = np.bincount(r.ravel())
+    radialprofile = tbin / nr
+
+    return radialprofile

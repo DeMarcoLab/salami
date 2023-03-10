@@ -49,6 +49,7 @@ def run_segmentation_on_image(
 
     # save results
     save_path = os.path.join(path, cfg.SEG_DIR, f"{basename}.tif")
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
     tff.imsave(save_path, mask)
 
     t3 = time.time()

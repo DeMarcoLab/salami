@@ -16,10 +16,15 @@ def run_salami(
     microscope: FibsemMicroscope,
     settings: MicroscopeSettings,
     salami_settings: SalamiSettings,
-    pattern_settings: FibsemPatternSettings,
-    milling_settings: FibsemMillingSettings,
 ):
 
+    # image settings
+    settings.image.save = True
+    settings.image.autocontrast = False
+    settings.image.gamma_enabled = False
+
+    pattern_settings = salami_settings.pattern
+    milling_settings = salami_settings.milling
     n_steps = salami_settings.n_steps
     step_size = salami_settings.step_size
 
@@ -36,7 +41,7 @@ def run_salami(
         if i > MILL_START_IDX:
 
             # create pattern
-            milling.setup_milling(microscope)
+            milling.setup_milling(microscope, milling_settings)
             milling.draw_line(microscope, pattern_settings=pattern_settings)
 
             # run
@@ -63,7 +68,7 @@ def run_salami(
         settings.image.save = True
         settings.image.autocontrast = False
         settings.image.beam_type = BeamType.ELECTRON
-        settings.image.label = f"{i:04d}"
+        settings.image.label = f"{i:06d}"
         eb_image = acquire.new_image(microscope, settings.image)
 
         # update pattern
@@ -79,3 +84,21 @@ def run_salami(
 
         # if i % 50 == 0:
         # microscope.autocontrast(BeamType.ELECTRON)
+
+
+def load_protocol(protocol: dict) -> SalamiSettings:
+
+    # pattern settings
+    ps = FibsemPatternSettings.__from_dict__(protocol["milling"]["pattern"])
+
+    ms = FibsemMillingSettings.__from_dict__(protocol["milling"])
+
+    # salami settings
+    ss = SalamiSettings(
+        n_steps=int(protocol["num_steps"]),
+        step_size=float(protocol["step_size"]),
+        pattern=ps,
+        milling=ms,
+    )
+
+    return ss
