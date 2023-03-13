@@ -1,10 +1,10 @@
 import os, sys
 import math
 import numpy as np
-from frame import *
+from salami.denoise.frame import *
 from numba import jit
 from skimage.filters import gaussian
-import config as cfg
+import salami.denoise.config as cfg
 
 
 class Aligner:

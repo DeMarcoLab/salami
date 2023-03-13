@@ -5,15 +5,15 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
 from torchvision import transforms
-from model import SqueezeUNet
-from datasets import CustomDataset
+from salami.denoise.model import SqueezeUNet
+from salami.denoise.datasets import CustomDataset
 from PIL import Image
-import config as cfg
 import matplotlib.pyplot as plt
 
 # plt.switch_backend('agg')
-from align import *
-from frame import *
+import salami.denoise.config as cfg
+from salami.denoise.align import *
+from salami.denoise.frame import *
 
 # ###########
 DEBUG = False
@@ -69,10 +69,10 @@ class Trainer:
         self.transform = transforms.ToTensor()
         self.naugment = naugment
         self.train_dataset = CustomDataset(
-            NN=cfg.DN_NN, transform=self.transform, augment=True, naugment=self.naugment
+            NN=self.NN, transform=self.transform, augment=True, naugment=self.naugment
         )
         self.valid_dataset = CustomDataset(
-            NN=cfg.DN_NN, transform=self.transform, augment=False, naugment=0
+            NN=self.NN, transform=self.transform, augment=False, naugment=0
         )
         self.train_loader = None
         self.valid_loader = None
@@ -366,13 +366,15 @@ class Trainer:
         plt.savefig(self.fig_loss_fname)
         plt.close(fig)
 
-    def reconstruct(self, noisy_ref, noisy_imgs, filename_rec, path=None):
+    def reconstruct(self, noisy_ref, noisy_imgs, filename_rec, path=None, pixelsize: int = None):
         if len(noisy_imgs) != self.NN:
             print(
                 "The model was not initiated with the correct number of neighbouring slices"
             )
             sys.exit(-1)
-        aligner = Aligner(self.denoise_dir, cfg.PIXSZ, nthreads=8)
+        if pixelsize is None:
+            pixelsize = cfg.PIXSZ
+        aligner = Aligner(self.denoise_dir, pixelsize, nthreads=8)
         # align_patch is always false because now the images are all of identical dwell time
         aligned_ref, aligned_imgs = aligner.align_images(
             noisy_ref, noisy_imgs, align_patch=False
@@ -468,6 +470,6 @@ class Trainer:
         
         if path is None:
             path = self.denoise_dir
-        fname = os.path.join(path, filename_rec)
-        print("path: ", fname)
+        
+        fname = os.path.join(path, os.path.basename(filename_rec))
         img_out.save(fname)

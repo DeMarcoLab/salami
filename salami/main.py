@@ -22,33 +22,35 @@ def full_pipeline():
     microscope, settings = utils.setup_session(protocol_path=cfg.PROTOCOL_PATH)
     
     # create output directory
-    path = os.path.join(settings.image.save_path, cfg.DATA_DIR)
-    os.makedirs(path, exist_ok=True)
-    os.makedirs(os.path.join(path, cfg.DENOISE_DIR), exist_ok=True)
-    os.makedirs(os.path.join(path, cfg.SEG_DIR), exist_ok=True)
-    settings.image.save_path = path
+    # path = os.path.join(settings.image.save_path, cfg.DATA_DIR)
+    path ="/home/patrick/github/salami/salami/output"
+
+    RAW_PATH = os.path.join(path, cfg.RAW_DIR)
+    DENOISE_PATH = os.path.join(path, cfg.DENOISE_DIR)
+    SEG_PATH = os.path.join(path, cfg.SEG_DIR)
+
+    os.makedirs(RAW_PATH, exist_ok=True)
+    os.makedirs(DENOISE_PATH, exist_ok=True)
+    os.makedirs(SEG_PATH, exist_ok=True)
+    settings.image.save_path = RAW_PATH
 
     # load salami protocol
     ss = sc.load_protocol(settings.protocol)
+
+    # run salami
     # sc.run_salami(microscope, settings, ss)
 
-
-    # time.sleep(random.randint(1, 2))
-    # print("Loading data...")
-    # time.sleep(random.randint(1, 2))
-    # print("Preprocessing data...")
-    # time.sleep(random.randint(1, ))
-    # print("Running denoising model...")
-    # time.sleep(random.randint(1, 5))
-    # print("Saving results...")
-    # time.sleep(random.randint(1, 5))
-    # print("Restacking and aligning arrays...")
-    # time.sleep(random.randint(1, 5))
+    # run denoising
+    print("Running denoising model...")
+    from salami.denoise import inference
+    inference.run_denoise(RAW_PATH, DENOISE_PATH, settings.protocol["denoise"])
     
+    # run segmentation
     print("Running segmentation model...")
-    path = "/home/patrick/github/salami/salami/output/denoise"
-    sseg.run_segmentation(path)
-    sseg.calc_seg_diagnostic(path)
+    sseg.run_segmentation(DENOISE_PATH, checkpoint=None, output_path=SEG_PATH)
+
+    # diagnostics
+    sseg.calc_seg_diagnostic(SEG_PATH, labels=cfg.LABELS)
 
     print("Done!")
 

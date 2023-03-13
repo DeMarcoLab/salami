@@ -140,3 +140,4 @@ salami/protocol/salami_*
 denoising_*/*
 data/*
 salami/output/*
+salami/output2/**/*

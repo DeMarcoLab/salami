@@ -7,5 +7,17 @@ SWEEP_PATH = os.path.join(SALAMI_PATH, "protocol", "sweep.yaml")
 
 
 DATA_DIR = "data"
+RAW_DIR = "raw"
 SEG_DIR = "seg"
 DENOISE_DIR = "denoise"
+
+
+LABELS =[
+            "Background",
+            "Nucleus",
+            "Nucleolus",
+            "Cytoplasm",
+            "Mitochondria",
+            "ER",
+            "Golgi",
+        ]
