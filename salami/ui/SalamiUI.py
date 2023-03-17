@@ -6,9 +6,7 @@ from fibsem import acquire, alignment, constants, milling, utils
 from fibsem.structures import (
     BeamType,
     FibsemImage,
-    FibsemMillingSettings,
     FibsemPattern,
-    FibsemPatternSettings,
     ImageSettings,
 )
 from fibsem.ui.FibsemImageSettingsWidget import FibsemImageSettingsWidget
@@ -57,6 +55,9 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.gridLayout_movement_tab.addWidget(self.movement_widget, 0, 0)
         self.gridLayout_milling_tab.addWidget(self.milling_widget, 0, 0)
 
+        # disable ui elements that are not used in salami
+        self.disable_ui_elements()
+
         # set values from protocol
         self.update_ui_from_protocol()
 
@@ -68,6 +69,17 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionLoad_Experiment.triggered.connect(self.load_experiment)
         self.actionLoad_Protocol.triggered.connect(self.load_protocol)
         self.actionSave_Protocol.triggered.connect(self.save_protocol)
+
+    def disable_ui_elements(self):
+        # salami specific setup
+        # disable adding/removing milling stages
+        self.milling_widget.pushButton_add_milling_stage.setEnabled(False)
+        self.milling_widget.pushButton_add_milling_stage.hide()
+        self.milling_widget.pushButton_remove_milling_stage.setEnabled(False)
+        self.milling_widget.pushButton_remove_milling_stage.hide()
+
+        # disable changing pattern type
+        self.milling_widget.comboBox_patterns.setEnabled(False)
 
     def create_experiment(self):
         print("create experiment")
@@ -114,13 +126,9 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         # image settings
         image_settings: ImageSettings = self.image_widget.get_settings_from_ui()
 
-        # milling settings
-        pattern_settings: FibsemPatternSettings = (
-            self.milling_widget.get_pattern_settings_from_ui()
-        )
-        milling_settings: FibsemMillingSettings = (
-            self.milling_widget.get_milling_settings_from_ui()
-        )
+        stage = self.milling_widget.get_milling_stages()[0]
+
+        # TODO: we need to ensure that the patterns are defined first...
 
         # general settings
         n_steps = int(self.spinBox_n_steps.value())
@@ -139,11 +147,11 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
             logging.info(f"---------- STEP {step_no+1} of {n_steps} ----------")
 
             yield ("Milling", step_no, n_steps, None, None)
-            milling.setup_milling(self.microscope, mill_settings=milling_settings)
-            milling.draw_pattern(self.microscope, pattern_settings)
+            milling.setup_milling(self.microscope, mill_settings=stage.milling)
+            milling.draw_patterns(self.microscope, stage.pattern.patterns)
             milling.run_milling(
                 self.microscope,
-                milling_current=milling_settings.milling_current,
+                milling_current=stage.milling.milling_current,
                 asynch=False,
             )
             milling.finish_milling(
@@ -164,14 +172,15 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
             time.sleep(1)
 
             # update pattern
-            if pattern_settings.pattern is FibsemPattern.Line:
-                pattern_settings.end_y += milling_step_size
-                pattern_settings.start_y += milling_step_size
-            if pattern_settings.pattern is FibsemPattern.Rectangle:
-                pattern_settings.centre_y += milling_step_size
+            pattern = stage.pattern.patterns[0]
+            if pattern.pattern is FibsemPattern.Line:
+                pattern.end_y += milling_step_size
+                pattern.start_y += milling_step_size
+            if pattern.pattern is FibsemPattern.Rectangle:
+                pattern.centre_y += milling_step_size
 
             # ui update
-            yield ("Update", step_no, n_steps, eb_image, pattern_settings)
+            yield ("Update", step_no, n_steps, eb_image, stage)
 
     def salami_finished(self):
         self.label_ui_status.setText("Finished.")
@@ -180,12 +189,12 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.pushButton.setStyleSheet("background-color: gray")
 
     def update_ui(self, info: tuple):
-        stage, step, total_steps, eb_image, pattern_settings = info
+        stage, step, total_steps, eb_image, milling_stage = info
         self.label_ui_status.setText(f"{stage} {step+1} of {total_steps}")
 
         if stage == "Update":
             self.image_widget.update_viewer(eb_image.data, name=BeamType.ELECTRON.name)
-            self.milling_widget.update_ui(pattern_settings)
+            self.milling_widget.update_ui([milling_stage])
 
 
 def main():
