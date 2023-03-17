@@ -131,3 +131,4 @@ dmypy.json
 
 .vscode/*
 salami/protocol/**/*.tif
+salami/_version.py
