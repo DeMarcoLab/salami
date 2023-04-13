@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import tifffile as tff
 import zarr
-from fibsem import utils
+from fibsem import utils, acquire
 from fibsem.structures import (BeamType, FibsemImage, FibsemMillingSettings,
                                FibsemPattern, FibsemPatternSettings,
                                MicroscopeSettings)
@@ -71,8 +71,8 @@ def create_sweep_parameters(settings: MicroscopeSettings, conf: dict = None):
 
                         idx = len(parameters)
                         idx = f"{idx:06d}"
-                        data_path = os.path.join(base_path, idx)
-                        os.makedirs(data_path, exist_ok=True)
+                        # data_path = os.path.join(base_path, idx)
+                        os.makedirs(base_path, exist_ok=True)
 
                         params = {
                             "voltage": voltage,
@@ -80,9 +80,10 @@ def create_sweep_parameters(settings: MicroscopeSettings, conf: dict = None):
                             "resolution_x": resolution[0],
                             "resolution_y": resolution[1],
                             "hfw": hfw,
+                            "pixelsize": hfw / resolution[0] * 1e9, # nm
                             "dwell_time": dwell_time,
                             "idx": idx,
-                            "path": data_path,
+                            "path": base_path,
                         }
                         parameters.append(params)
 
@@ -130,9 +131,14 @@ def run_sweep_collection(microscope, settings, ss: SalamiSettings, conf: dict = 
         settings.image.dwell_time = dwell_time
         settings.image.hfw = hfw
         settings.image.save_path = data_path
+        settings.image.label = idx = f"{idx:06d}"
+        settings.image.save = True
+        settings.image.autocontrast = False
+        settings.image.gamma_enabled = False
 
         # run salami
-        run_salami(microscope, settings, ss)
+        # run_salami(microscope, settings, ss)
+        acquire.new_image(microscope, settings.image)
 
         if i == break_idx:
             break
@@ -163,30 +169,26 @@ def run_sweep_analysis(path: Path, conf: dict = None):
     path_data = []
     for i, parameters in enumerate(params_dict):
         data_path = parameters["path"]
+        idx = parameters["idx"]
 
-        metric = 0
-        n_images = 0
+        fname = os.path.join(data_path, f"{idx:06d}_eb.tif")
 
-        # get all images
-        filenames = sorted(glob.glob(os.path.join(data_path, "*.tif")))
-        if len(filenames) > 0:
-            images = da.from_zarr(
-                tff.imread(os.path.join(data_path, "*.tif*"), aszarr=True)
-            )
+        # print(parameters)
 
-            # split image into two halves
-            metrics = []
-            for img in images:
-                img1, img2 = np.split(img, 2, axis=1)
-                metrics.append(calc_metric(img1, img2))
-            # metrics = [calc_metric(img) for img in images]
-            n_images = images.shape[0]
-            metric = np.mean(metrics)
+        img = FibsemImage.load(fname)
 
-        path_data.append([data_path, n_images, metric])
+        # img1, img2 = np.split(img, 2, axis=1)
+        # metric = calc_metric(img1, img2)
+        metric = np.mean(img.data)
+
+        path_data.append([idx, metric])
+
+        print(f"Path: {os.path.basename(fname)}, Metric: {metric:.2f}, ")
+        print("-"*50)
+
 
     # save metrics
-    df = pd.DataFrame(path_data, columns=["path", "n_images", "metric"])
+    df = pd.DataFrame(path_data, columns=["idx", "metric"])
     df.to_csv(os.path.join(path, "metrics.csv"), index=False)
 
     # join parameters and metrics dataframes
@@ -194,13 +196,43 @@ def run_sweep_analysis(path: Path, conf: dict = None):
 
     return df
 
+    #     metric = 0
+    #     n_images = 0
+
+    #     # get all images
+    #     filenames = sorted(glob.glob(os.path.join(data_path, "*.tif")))
+    #     if len(filenames) > 0:
+    #         images = da.from_zarr(
+    #             tff.imread(os.path.join(data_path, "*.tif*"), aszarr=True)
+    #         )
+
+    #         # split image into two halves
+    #         metrics = []
+    #         for img in images:
+    #             img1, img2 = np.split(img, 2, axis=1)
+    #             metrics.append(calc_metric(img1, img2))
+    #         # metrics = [calc_metric(img) for img in images]
+    #         n_images = images.shape[0]
+    #         metric = np.mean(metrics)
+
+    #     path_data.append([data_path, n_images, metric])
+
+    # # save metrics
+    # df = pd.DataFrame(path_data, columns=["path", "n_images", "metric"])
+    # df.to_csv(os.path.join(path, "metrics.csv"), index=False)
+
+    # # join parameters and metrics dataframes
+    # df = join_df(path)
+
+    # return df
+
 
 def join_df(path: Path, conf: dict = None):
     # join parameters and metrics dataframes
     df = pd.read_csv(os.path.join(path, "parameters.csv"))
     df_metrics = pd.read_csv(os.path.join(path, "metrics.csv"))
 
-    df = df.join(df_metrics.set_index("path"), on="path")
+    df = df.join(df_metrics.set_index("idx"), on="idx")
     df.to_csv(os.path.join(path, "parameters_metrics.csv"), index=False)
 
     return df
@@ -210,26 +242,45 @@ def plot_metrics(path: Path, conf: dict = None):
     # plot metrics
     df = pd.read_csv(os.path.join(path, "parameters_metrics.csv"))
 
-    # drop rows with no images
-    df = df[df["n_images"] > 0]
-    df = df.sort_values(by="metric", ascending=False)
+    # plot 3d scatter plot, metric vs current vs pixelsize
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.scatter(df["current"], df["pixelsize"], df["metric"], c=df["hfw"])
+    ax.set_xlabel("Current")
+    ax.set_ylabel("Pixelsize")
+    ax.set_zlabel("Metric")
+    
+    ax.legend(loc="best")
 
-    fig, ax = plt.subplots(3, 2, figsize=(7, 7))
-
-    fig.suptitle("Sweep Metrics (Work in Progress)")
-
-    # plot each column against the metric, except the path and idx column
-    for i, col in enumerate(df.columns):
-        if col not in ["path", "idx", "n_images", "metric"]:
-            ax[i // 2, i % 2].scatter(df[col], df["metric"])
-
-            # add title and axis labels
-            ax[i // 2, i % 2].set_title(f"{col} vs metric")
-            ax[i // 2, i % 2].set_xlabel(col)
-            ax[i // 2, i % 2].set_ylabel("metric")
-
-    plt.tight_layout()
     plt.show()
+
+
+
+
+# def plot_metrics(path: Path, conf: dict = None):
+#     # plot metrics
+#     df = pd.read_csv(os.path.join(path, "parameters_metrics.csv"))
+
+#     # drop rows with no images
+#     df = df[df["n_images"] > 0]
+#     df = df.sort_values(by="metric", ascending=False)
+
+#     fig, ax = plt.subplots(3, 2, figsize=(7, 7))
+
+#     fig.suptitle("Sweep Metrics (Work in Progress)")
+
+#     # plot each column against the metric, except the path and idx column
+#     for i, col in enumerate(df.columns):
+#         if col not in ["path", "idx", "n_images", "metric"]:
+#             ax[i // 2, i % 2].scatter(df[col], df["metric"])
+
+#             # add title and axis labels
+#             ax[i // 2, i % 2].set_title(f"{col} vs metric")
+#             ax[i // 2, i % 2].set_xlabel(col)
+#             ax[i // 2, i % 2].set_ylabel("metric")
+
+#     plt.tight_layout()
+#     plt.show()
 
 
 

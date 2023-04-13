@@ -13,7 +13,7 @@ from salami.structures import SalamiSettings
 
 def analysis_pipeline():
 
-    sa.run_salami_analysis(break_idx=1)
+    sa.run_salami_analysis(break_idx=1e6)
 
 
 def full_pipeline():
@@ -57,9 +57,9 @@ def full_pipeline():
 
 def main():
 
-    full_pipeline()
+    # full_pipeline()
 
-    # analysis_pipeline()
+    analysis_pipeline()
 
 
 if __name__ == "__main__":
