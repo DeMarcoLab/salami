@@ -13,7 +13,7 @@ from salami.structures import SalamiSettings
 
 def analysis_pipeline():
 
-    sa.run_salami_analysis(break_idx=1e6)
+    sa.run_salami_analysis(path="/home/patrick/github/salami/my_output/data", break_idx=1e6)
 
 
 def full_pipeline():

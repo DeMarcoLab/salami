@@ -26,21 +26,23 @@ def run_salami_analysis(path: Path = None, break_idx: int = 10):
     if path is None:
         path = os.path.join(settings.image.save_path, "data")
     
+    os.makedirs(path, exist_ok=True)
+    
     ss = load_protocol(settings.protocol)
 
     # load sweep parameters
     conf = utils.load_yaml(cfg.SWEEP_PATH)
-    create_sweep_parameters(settings, conf)
+    create_sweep_parameters(settings, conf, path=path)
 
     # run sweep
-    run_sweep_collection(microscope, settings, ss=ss, break_idx=break_idx)
+    run_sweep_collection(microscope, settings, ss=ss, break_idx=break_idx, path=path)
 
     run_sweep_analysis(path)
 
     plot_metrics(path)
 
 
-def create_sweep_parameters(settings: MicroscopeSettings, conf: dict = None):
+def create_sweep_parameters(settings: MicroscopeSettings, conf: dict = None, path: Path = None):
 
     # pixelsize (nm), # pixelsize = hfw/n_pixels_x
     pixelsizes = np.array(conf["pixelsize"])  # nm
@@ -49,7 +51,8 @@ def create_sweep_parameters(settings: MicroscopeSettings, conf: dict = None):
     currents = conf["current"]
     dwell_times = conf["dwell_time"]
 
-    base_path = os.path.join(settings.image.save_path, "data")
+    if path is None:
+        path = os.path.join(settings.image.save_path, "data")
 
     df = pd.DataFrame(
         columns=[
@@ -72,7 +75,7 @@ def create_sweep_parameters(settings: MicroscopeSettings, conf: dict = None):
                         idx = len(parameters)
                         idx = f"{idx:06d}"
                         # data_path = os.path.join(base_path, idx)
-                        os.makedirs(base_path, exist_ok=True)
+                        os.makedirs(path, exist_ok=True)
 
                         params = {
                             "voltage": voltage,
@@ -83,22 +86,23 @@ def create_sweep_parameters(settings: MicroscopeSettings, conf: dict = None):
                             "pixelsize": hfw / resolution[0] * 1e9, # nm
                             "dwell_time": dwell_time,
                             "idx": idx,
-                            "path": base_path,
+                            "path": path,
                         }
                         parameters.append(params)
 
     logging.info(f"{len(parameters)} Sweeps to be performed")
     df = pd.DataFrame(parameters)
-    df.to_csv(os.path.join(base_path, "parameters.csv"), index=False)
+    df.to_csv(os.path.join(path, "parameters.csv"), index=False)
 
     return df
 
 
-def run_sweep_collection(microscope, settings, ss: SalamiSettings, conf: dict = None, break_idx: int = 10):
+def run_sweep_collection(microscope, settings, ss: SalamiSettings, conf: dict = None, break_idx: int = 10, path: Path = None):
 
-    base_path = os.path.join(settings.image.save_path, "data")
+    if path is None:
+        path = os.path.join(settings.image.save_path, "data")
 
-    df = pd.read_csv(os.path.join(base_path, "parameters.csv"))
+    df = pd.read_csv(os.path.join(path, "parameters.csv"))
     params_dict = df.to_dict("records")
 
     # image settings
