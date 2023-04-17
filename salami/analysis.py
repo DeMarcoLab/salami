@@ -347,3 +347,56 @@ def calc_radial_average(img: np.ndarray) -> float:
     radialprofile = tbin / nr
 
     return radialprofile
+
+
+
+import numpy as np
+
+def calculate_halfmap_frc(image):
+    # Calculate the dimensions of the input image
+    ny, nx = image.shape
+    
+    # Split the image into two halves along the vertical axis
+    half1 = image[:, :nx//2]
+    half2 = image[:, nx//2:]
+    
+    # normalise the images
+    half1 = (half1 - np.min(half1)) / (np.max(half1) - np.min(half1))
+    half2 = (half2 - np.min(half2)) / (np.max(half2) - np.min(half2))
+
+    # Perform Fourier transformation on the two halves
+    half1_ft = np.fft.fftshift(np.fft.fft2(half1))
+    half2_ft = np.fft.fftshift(np.fft.fft2(half2))
+    
+    # Calculate the dimensions and center of the Fourier transforms
+    center = (nx // 2, ny // 2)
+    
+    # Initialize an array to store the Fourier ring correlation coefficients
+    frc = np.zeros(min(center))
+    
+    # Iterate through concentric rings from the center to the edge
+    for r in range(min(center)):
+        # Create a circular mask for the current ring
+        mask = np.zeros((ny, nx//2), dtype=bool)
+        y, x = np.ogrid[-ny//2:ny//2, -nx//4:nx//4]
+        mask = x**2 + y**2 <= r**2
+
+        # Calculate the Fourier amplitudes within the current ring for both halves
+        half1_ring = half1_ft[mask]
+        half2_ring = half2_ft[mask]
+        
+        # Calculate the cross-correlation of the Fourier amplitudes in the current ring
+        frc[r] = np.real(np.sum(half1_ring * np.conj(half2_ring))) / (np.abs(np.sum(half1_ring)) * np.abs(np.sum(half2_ring)))
+    
+    return frc
+
+# # Example usage:
+# # Load the image as a numpy array
+# image = np.load("image.npy")
+
+# # Call the function to calculate the half-map FRC
+# frc = calculate_halfmap_frc(image)
+
+# # Print the results
+# print("Half-Map Fourier Ring Correlation:")
+# print(frc)
