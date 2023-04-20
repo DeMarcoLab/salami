@@ -261,33 +261,6 @@ def plot_metrics(path: Path, conf: dict = None):
 
 
 
-# def plot_metrics(path: Path, conf: dict = None):
-#     # plot metrics
-#     df = pd.read_csv(os.path.join(path, "parameters_metrics.csv"))
-
-#     # drop rows with no images
-#     df = df[df["n_images"] > 0]
-#     df = df.sort_values(by="metric", ascending=False)
-
-#     fig, ax = plt.subplots(3, 2, figsize=(7, 7))
-
-#     fig.suptitle("Sweep Metrics (Work in Progress)")
-
-#     # plot each column against the metric, except the path and idx column
-#     for i, col in enumerate(df.columns):
-#         if col not in ["path", "idx", "n_images", "metric"]:
-#             ax[i // 2, i % 2].scatter(df[col], df["metric"])
-
-#             # add title and axis labels
-#             ax[i // 2, i % 2].set_title(f"{col} vs metric")
-#             ax[i // 2, i % 2].set_xlabel(col)
-#             ax[i // 2, i % 2].set_ylabel("metric")
-
-#     plt.tight_layout()
-#     plt.show()
-
-
-
 
 
 # this is only for one image?
@@ -353,42 +326,66 @@ def calc_radial_average(img: np.ndarray) -> float:
 import numpy as np
 
 def calculate_halfmap_frc(image):
-    # Calculate the dimensions of the input image
+
     ny, nx = image.shape
+
+    # # HALF SPLIT
+
+    # # Split the image into two halves along the vertical axis
+    # half1 = image[:nx//2, :nx//2]
+    # half2 = image[:nx//2, nx//2:]
+
+    # ny, nx = half1.shape
+
+    ##### CHECKERBOARD SPLIT
+
+    # create checkerboard mask 1px wide
+    mask = np.zeros_like(image, dtype=bool)
+    mask[::2, ::2] = 1
+    mask[1::2, 1::2] = 1
+
+    # split image with checkerboard mask
+    half1 = image * (mask == 1)
+    half2 = image * (mask == 0)
     
-    # Split the image into two halves along the vertical axis
-    half1 = image[:, :nx//2]
-    half2 = image[:, nx//2:]
-    
-    # normalise the images
-    half1 = (half1 - np.min(half1)) / (np.max(half1) - np.min(half1))
-    half2 = (half2 - np.min(half2)) / (np.max(half2) - np.min(half2))
+    half1 = (half1 - np.mean(half1) / np.std(half1))
+    half2 = (half2 - np.mean(half2) / np.std(half2))
 
     # Perform Fourier transformation on the two halves
     half1_ft = np.fft.fftshift(np.fft.fft2(half1))
     half2_ft = np.fft.fftshift(np.fft.fft2(half2))
-    
+
     # Calculate the dimensions and center of the Fourier transforms
-    center = (nx // 2, ny // 2)
+    center = np.asarray(half1.shape) // 2
     
     # Initialize an array to store the Fourier ring correlation coefficients
     frc = np.zeros(min(center))
     
     # Iterate through concentric rings from the center to the edge
     for r in range(min(center)):
+        
         # Create a circular mask for the current ring
-        mask = np.zeros((ny, nx//2), dtype=bool)
-        y, x = np.ogrid[-ny//2:ny//2, -nx//4:nx//4]
-        mask = x**2 + y**2 <= r**2
+        mask = np.zeros(half1.shape, dtype=bool)
+        
+        # create meshgrid
+        y, x = np.meshgrid(np.arange(-nx//2, nx//2), 
+                           np.arange(-ny//2, ny//2))
+        mask = np.round(np.sqrt(x**2 + y**2)) == r
 
         # Calculate the Fourier amplitudes within the current ring for both halves
         half1_ring = half1_ft[mask]
         half2_ring = half2_ft[mask]
-        
+
+       
         # Calculate the cross-correlation of the Fourier amplitudes in the current ring
-        frc[r] = np.real(np.sum(half1_ring * np.conj(half2_ring))) / (np.abs(np.sum(half1_ring)) * np.abs(np.sum(half2_ring)))
-    
-    return frc
+        n1 = np.sum(half1_ring * np.conj(half2_ring))
+        # v1 = np.sum(half1_ring * np.conj(half1_ring))
+        # v2 = np.sum(half2_ring * np.conj(half2_ring))
+        v1 = np.sum(np.abs(half1_ring) ** 2)
+        v2 = np.sum(np.abs(half2_ring) ** 2)
+        frc[r] = np.real(n1/ np.sqrt(v1*v2))
+
+    return frc, half1, half2
 
 # # Example usage:
 # # Load the image as a numpy array
