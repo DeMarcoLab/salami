@@ -340,52 +340,95 @@ def calculate_halfmap_frc(image):
     ##### CHECKERBOARD SPLIT
 
     # create checkerboard mask 1px wide
+    # mask = np.zeros_like(image, dtype=bool)
+    # mask[::2, ::2] = 1
+    # mask[1::2, 1::2] = 1
+
+    # # split image with checkerboard mask
+    # half1 = image * (mask == 1)
+    # half2 = image * (mask == 0)
+
+    ##### Double Checkerboard Split
     mask = np.zeros_like(image, dtype=bool)
     mask[::2, ::2] = 1
     mask[1::2, 1::2] = 1
 
-    # split image with checkerboard mask
-    half1 = image * (mask == 1)
-    half2 = image * (mask == 0)
-    
-    half1 = (half1 - np.mean(half1) / np.std(half1))
-    half2 = (half2 - np.mean(half2) / np.std(half2))
+    mask = mask.astype(int)
 
-    # Perform Fourier transformation on the two halves
-    half1_ft = np.fft.fftshift(np.fft.fft2(half1))
-    half2_ft = np.fft.fftshift(np.fft.fft2(half2))
+    idx = [x for x in range(0, mask.shape[0]) if x % 2 == 1]
 
-    # Calculate the dimensions and center of the Fourier transforms
-    center = np.asarray(half1.shape) // 2
-    
-    # Initialize an array to store the Fourier ring correlation coefficients
-    frc = np.zeros(min(center))
-    
-    # Iterate through concentric rings from the center to the edge
-    for r in range(min(center)):
+    for i in idx:
+        mask[i, :] = 2 * mask[i,  :]
+
+    mask2 = mask == 0
+    mask2 = mask2.astype(int)
+
+    idx = [x for x in range(0, mask2.shape[0]) if x % 2 == 1]
+
+    for i in idx:
+        mask2[i, :] = 2 * mask2[i,  :]
+
+    m00 = mask == 1
+    m01 = mask == 2
+
+    m10 = mask2 == 1
+    m11 = mask2 == 2
+
+    half00 = image * m00
+    half01 = image * m01
+
+    half10 = image * m10
+    half11 = image * m11
+
+    # return list[(img1, img2)]
+
+    frcs = []
+    for half1, half2 in [(half00, half01), (half10, half11)]:
+            
+        ny, nx = half1.shape
+
+        half1 = (half1 - np.mean(half1) / np.std(half1))
+        half2 = (half2 - np.mean(half2) / np.std(half2))
+
+        # Perform Fourier transformation on the two halves
+        half1_ft = np.fft.fftshift(np.fft.fft2(half1))
+        half2_ft = np.fft.fftshift(np.fft.fft2(half2))
+
+        # Calculate the dimensions and center of the Fourier transforms
+        center = np.asarray(half1.shape) // (2 * 2 * np.sqrt(2)) # /2 for radisu / 2 for nyquist / sqrt(2) for diagonal
         
-        # Create a circular mask for the current ring
-        mask = np.zeros(half1.shape, dtype=bool)
+        # Initialize an array to store the Fourier ring correlation coefficients
+        frc = np.zeros(int(min(center)))
         
-        # create meshgrid
-        y, x = np.meshgrid(np.arange(-nx//2, nx//2), 
-                           np.arange(-ny//2, ny//2))
-        mask = np.round(np.sqrt(x**2 + y**2)) == r
+        # Iterate through concentric rings from the center to the edge
+        for r in range(frc.shape[0]):
+            
+            # Create a circular mask for the current ring
+            mask = np.zeros(half1.shape, dtype=bool)
+            
+            # create meshgrid
+            y, x = np.meshgrid(np.arange(-nx//2, nx//2), 
+                            np.arange(-ny//2, ny//2))
+            mask = np.round(np.sqrt(x**2 + y**2)) == r
 
-        # Calculate the Fourier amplitudes within the current ring for both halves
-        half1_ring = half1_ft[mask]
-        half2_ring = half2_ft[mask]
+            # Calculate the Fourier amplitudes within the current ring for both halves
+            half1_ring = half1_ft[mask]
+            half2_ring = half2_ft[mask]
+        
+            # Calculate the cross-correlation of the Fourier amplitudes in the current ring
+            n1 = np.sum(half1_ring * np.conj(half2_ring))
+            # v1 = np.sum(half1_ring * np.conj(half1_ring))
+            # v2 = np.sum(half2_ring * np.conj(half2_ring))
+            v1 = np.sum(np.abs(half1_ring) ** 2)
+            v2 = np.sum(np.abs(half2_ring) ** 2)
+            frc[r] = np.real(n1/ np.sqrt(v1*v2))
 
-       
-        # Calculate the cross-correlation of the Fourier amplitudes in the current ring
-        n1 = np.sum(half1_ring * np.conj(half2_ring))
-        # v1 = np.sum(half1_ring * np.conj(half1_ring))
-        # v2 = np.sum(half2_ring * np.conj(half2_ring))
-        v1 = np.sum(np.abs(half1_ring) ** 2)
-        v2 = np.sum(np.abs(half2_ring) ** 2)
-        frc[r] = np.real(n1/ np.sqrt(v1*v2))
+        frcs.append(frc)
 
-    return frc, half1, half2
+    return frcs, (half00, half01, half10, half11)
+
+def get_frc_mean(metric: np.ndarray) -> np.ndarray:
+    return np.mean(metric, axis=0)
 
 # # Example usage:
 # # Load the image as a numpy array
