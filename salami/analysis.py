@@ -3,16 +3,11 @@ import logging
 import os
 from pathlib import Path
 
-import dask.array as da
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import tifffile as tff
-import zarr
-from fibsem import utils, acquire
-from fibsem.structures import (BeamType, FibsemImage, FibsemMillingSettings,
-                               FibsemPattern, FibsemPatternSettings,
-                               MicroscopeSettings)
+from fibsem import acquire, utils
+from fibsem.structures import BeamType, FibsemImage, MicroscopeSettings
 
 from salami import config as cfg
 from salami.core import load_protocol, run_salami
@@ -147,59 +142,7 @@ def run_sweep_collection(microscope, settings, ss: SalamiSettings, conf: dict = 
         if i == break_idx:
             break
 
-
-def run_sweep_analysis(path: Path, conf: dict = None):
-
-    df = pd.read_csv(os.path.join(path, "parameters.csv"))
-
-    params_dict = df.to_dict("records")
-
-    # def calcFRSC(images):
-    #     # TODO: replace with frsc
-    #     # calculate metric
-    #     metric = da.average(images).compute()
-    #     return metric + np.random.rand() * 50
-
-    calc_metric = calcFRC
-
-    # FSC:
-    # - https://en.wikipedia.org/wiki/Fourier_shell_correlation
-    # - https://www.nature.com/articles/s41467-019-11024-z
-
-    # PolishEM:
-    # - https://academic.oup.com/bioinformatics/article/36/12/3947/5813331?login=true
-    # - https://sites.google.com/site/3demimageprocessing/polishem
-
-    path_data = []
-    for i, parameters in enumerate(params_dict):
-        data_path = parameters["path"]
-        idx = parameters["idx"]
-
-        fname = os.path.join(data_path, f"{idx:06d}_eb.tif")
-
-        # print(parameters)
-
-        img = FibsemImage.load(fname)
-
-        # img1, img2 = np.split(img, 2, axis=1)
-        # metric = calc_metric(img1, img2)
-        metric = np.mean(img.data)
-
-        path_data.append([idx, metric])
-
-        print(f"Path: {os.path.basename(fname)}, Metric: {metric:.2f}, ")
-        print("-"*50)
-
-
-    # save metrics
-    df = pd.DataFrame(path_data, columns=["idx", "metric"])
-    df.to_csv(os.path.join(path, "metrics.csv"), index=False)
-
-    # join parameters and metrics dataframes
-    df = join_df(path)
-
-    return df
-  
+ 
 
 def join_df(path: Path, conf: dict = None):
     # join parameters and metrics dataframes
@@ -241,59 +184,6 @@ def calcPSNR(img: FibsemImage, max_val: float = 255.0) -> float:
     mse = np.mean((data - data.mean()) ** 2)
     return 10 * np.log10(max_val ** 2 / mse)
 
-def calcFRC(img1: FibsemImage, img2: FibsemImage) -> float:
-    # https://en.wikipedia.org/wiki/Fourier_ring_correlation
-    # https://www.nature.com/articles/s41467-019-11024-z
-    # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3885820/
-
-    from fibsem.imaging.utils import normalise_image
-
-    # normalise images
-    img1 = normalise_image(img1)
-    img2 = normalise_image(img2)
-
-    # apply tukey window
-    # https://en.wikipedia.org/wiki/Tukey_window
-    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.tukey.html
-
-    import scipy.signal as signal
-    window = signal.tukey(img1.shape[0], alpha=0.9)
-    img1 = img1 * window[:, np.newaxis]
-    img2 = img2 * window[:, np.newaxis]
-    
-
-    # calculate the 2D FFT
-    f1 = np.fft.fft2(img1)
-    f2 = np.fft.fft2(img2)
-
-    # calculate the FRC
-    frc = np.abs(f1 * f2.conj()) / np.sqrt(np.abs(f1 * f1.conj()) * np.abs(f2 * f2.conj()))
-
-    # calculate the radial average
-    frc = calc_radial_average(frc)
-
-    # calculate the FRC
-    frc = frc / frc[0]
-
-    return frc
-    
-
-def calc_radial_average(img: np.ndarray) -> float:
-    # https://stackoverflow.com/questions/21242011/most-efficient-way-to-calculate-radial-profile
-
-    y, x = np.indices((img.shape))
-    r = np.sqrt((x - x.mean()) ** 2 + (y - y.mean()) ** 2)
-    r = r.astype(int)
-
-    tbin = np.bincount(r.ravel(), img.ravel())
-    nr = np.bincount(r.ravel())
-    radialprofile = tbin / nr
-
-    return radialprofile
-
-
-
-import numpy as np
 
 def calculate_halfmap_frc(image):
 
