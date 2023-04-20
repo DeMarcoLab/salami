@@ -141,3 +141,4 @@ denoising_*/*
 data/*
 salami/output/*
 salami/output2/**/*
+salami/notebook_test/*.png
