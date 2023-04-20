@@ -199,37 +199,7 @@ def run_sweep_analysis(path: Path, conf: dict = None):
     df = join_df(path)
 
     return df
-
-    #     metric = 0
-    #     n_images = 0
-
-    #     # get all images
-    #     filenames = sorted(glob.glob(os.path.join(data_path, "*.tif")))
-    #     if len(filenames) > 0:
-    #         images = da.from_zarr(
-    #             tff.imread(os.path.join(data_path, "*.tif*"), aszarr=True)
-    #         )
-
-    #         # split image into two halves
-    #         metrics = []
-    #         for img in images:
-    #             img1, img2 = np.split(img, 2, axis=1)
-    #             metrics.append(calc_metric(img1, img2))
-    #         # metrics = [calc_metric(img) for img in images]
-    #         n_images = images.shape[0]
-    #         metric = np.mean(metrics)
-
-    #     path_data.append([data_path, n_images, metric])
-
-    # # save metrics
-    # df = pd.DataFrame(path_data, columns=["path", "n_images", "metric"])
-    # df.to_csv(os.path.join(path, "metrics.csv"), index=False)
-
-    # # join parameters and metrics dataframes
-    # df = join_df(path)
-
-    # return df
-
+  
 
 def join_df(path: Path, conf: dict = None):
     # join parameters and metrics dataframes
@@ -426,6 +396,12 @@ def calculate_halfmap_frc(image):
         frcs.append(frc)
 
     return frcs, (half00, half01, half10, half11)
+
+#refs
+# https://pubmed.ncbi.nlm.nih.gov/16125414/
+# https://www.sciencedirect.com/science/article/pii/S1047847705001292?via%3Dihub
+# https://www.nature.com/articles/nmeth.2448
+# https://www.nature.com/articles/s41467-019-11024-z # quad checkerboard
 
 def get_frc_mean(metric: np.ndarray) -> np.ndarray:
     return np.mean(metric, axis=0)
