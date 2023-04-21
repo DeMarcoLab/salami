@@ -145,7 +145,7 @@ def run_sweep_collection(microscope, settings, ss: SalamiSettings, conf: dict = 
         if i == break_idx:
             break
 
-def run_salami_analysis_frc(path, strategy: str = "double_checkerboard", plot: bool= False):
+def run_salami_analysis_frc(path, strategy: str = "double_checkerboard", plot: bool= False, show: bool = False):
     df = pd.read_csv(os.path.join(path, "parameters.csv"))
 
     params_dict = df.to_dict("records")
@@ -173,29 +173,32 @@ def run_salami_analysis_frc(path, strategy: str = "double_checkerboard", plot: b
         int_05 = x[np.argmin(np.abs(mean_frc - 0.5))]
         int_0143 = x[np.argmin(np.abs(mean_frc - 0.143))]
 
-        fig, ax = plt.subplots(1,2, figsize=(20,5))
-        ax[0].imshow(img.data, cmap="gray")
-        ax[0].set_title(f"{basename} - {pixelsize:.2f} nm/pixel")
-        ax[1].plot(x ,ndimage.median_filter(mean_frc, size=5), color="blue", label="mean (filtered)")
-        ax[1].set_title(f"FRC")
-        ax[1].set_xlabel("Spatial frequency [1/nm]")
-        ax[1].set_ylabel("FRC")
-
-        # plot where the FRC is 0.5, 0.143
-        ax[1].axvline(int_05, color="red", linestyle="--", label=f"0.5 @ {int_05:.2f}/nm")
-        ax[1].axvline(int_0143, color="green", linestyle="--", label=f"0.143 @ {int_0143:.2f}/nm")
-
-        ax[1].legend(loc="best")
-        
-        # save figure
-        save_path = os.path.join(path, "plots")
-        os.makedirs(save_path, exist_ok=True)
-        plt.savefig(os.path.join(save_path, f"{os.path.basename(fname)}.png"))
-        if plot:
-            plt.show()
-        plt.close()
-
         path_data.append([idx, basename, mean_frc, int_05, int_0143])
+
+        # plotting
+        if plot:
+            fig, ax = plt.subplots(1,2, figsize=(20,5))
+            ax[0].imshow(img.data, cmap="gray")
+            ax[0].set_title(f"{basename} - {pixelsize:.2f} nm/pixel")
+            ax[1].plot(x ,ndimage.median_filter(mean_frc, size=5), color="blue", label="mean (filtered)")
+            ax[1].set_title(f"FRC")
+            ax[1].set_xlabel("Spatial frequency [1/nm]")
+            ax[1].set_ylabel("FRC")
+
+            # plot where the FRC is 0.5, 0.143
+            ax[1].axvline(int_05, color="red", linestyle="--", label=f"0.5 @ {int_05:.2f}/nm")
+            ax[1].axvline(int_0143, color="green", linestyle="--", label=f"0.143 @ {int_0143:.2f}/nm")
+
+            ax[1].legend(loc="best")
+            
+            # save figure
+            save_path = os.path.join(path, "plots")
+            os.makedirs(save_path, exist_ok=True)
+            plt.savefig(os.path.join(save_path, f"{os.path.basename(fname)}.png"))
+            if show:
+                plt.show()
+            plt.close()
+
         
     # save metrics
     df = pd.DataFrame(path_data, columns=["idx", "basename", "metric", "int_05", "int_0143"])
