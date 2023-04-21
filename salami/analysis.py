@@ -8,9 +8,12 @@ import numpy as np
 import pandas as pd
 from fibsem import acquire, utils
 from fibsem.structures import BeamType, FibsemImage, MicroscopeSettings
+from scipy import ndimage
+from tqdm import tqdm
 
+from salami import analysis as sa
 from salami import config as cfg
-from salami.core import load_protocol, run_salami
+from salami.core import load_protocol
 from salami.structures import SalamiSettings
 
 
@@ -32,7 +35,7 @@ def run_salami_analysis(path: Path = None, break_idx: int = 10):
     # run sweep
     run_sweep_collection(microscope, settings, ss=ss, break_idx=break_idx, path=path)
 
-    run_sweep_analysis(path)
+    run_salami_analysis_frc(path)
 
     plot_metrics(path)
 
@@ -142,6 +145,64 @@ def run_sweep_collection(microscope, settings, ss: SalamiSettings, conf: dict = 
         if i == break_idx:
             break
 
+def run_salami_analysis_frc(path, strategy: str = "double_checkerboard", plot: bool= False):
+    df = pd.read_csv(os.path.join(path, "parameters.csv"))
+
+    params_dict = df.to_dict("records")
+
+    path_data = []
+    prog = tqdm(params_dict)
+    split_strat  = "checkerboard"
+    for parameters in prog:
+        idx = parameters["idx"]
+        pixelsize = parameters["pixelsize"]
+
+        fname = glob.glob(os.path.join(path, f"{idx:06d}*.tif"))[0]
+        basename = os.path.basename(fname)
+        prog.set_description(f"Calculating FRC: {basename}, split: {split_strat}")
+
+        img = FibsemImage.load(fname)
+
+        metric, pairs = sa.calculate_halfmap_frc(image=img.data, strategy=strategy)
+
+        # subplot image and metric
+        mean_frc = sa.get_frc_mean(metric)
+
+        # scale x axis by pixelsize
+        x = np.arange(len(mean_frc)) / pixelsize
+        int_05 = x[np.argmin(np.abs(mean_frc - 0.5))]
+        int_0143 = x[np.argmin(np.abs(mean_frc - 0.143))]
+
+        fig, ax = plt.subplots(1,2, figsize=(20,5))
+        ax[0].imshow(img.data, cmap="gray")
+        ax[0].set_title(f"{basename} - {pixelsize:.2f} nm/pixel")
+        ax[1].plot(x ,ndimage.median_filter(mean_frc, size=5), color="blue", label="mean (filtered)")
+        ax[1].set_title(f"FRC")
+        ax[1].set_xlabel("Spatial frequency [1/nm]")
+        ax[1].set_ylabel("FRC")
+
+        # plot where the FRC is 0.5, 0.143
+        ax[1].axvline(int_05, color="red", linestyle="--", label=f"0.5 @ {int_05:.2f}/nm")
+        ax[1].axvline(int_0143, color="green", linestyle="--", label=f"0.143 @ {int_0143:.2f}/nm")
+
+        ax[1].legend(loc="best")
+        
+        # save figure
+        save_path = os.path.join(path, "plots")
+        os.makedirs(save_path, exist_ok=True)
+        plt.savefig(os.path.join(save_path, f"{os.path.basename(fname)}.png"))
+        if plot:
+            plt.show()
+        plt.close()
+
+        path_data.append([idx, basename, mean_frc, int_05, int_0143])
+        
+    # save metrics
+    df = pd.DataFrame(path_data, columns=["idx", "basename", "metric", "int_05", "int_0143"])
+    df.to_csv(os.path.join(path, "metrics.csv"), index=False)
+
+    return df
+
  
 
 def join_df(path: Path, conf: dict = None):
@@ -171,11 +232,6 @@ def plot_metrics(path: Path, conf: dict = None):
 
     plt.show()
 
-
-
-
-
-
 # this is only for one image?
 # see frame.PSNR for two images?
 def calcPSNR(img: FibsemImage, max_val: float = 255.0) -> float:
@@ -184,66 +240,78 @@ def calcPSNR(img: FibsemImage, max_val: float = 255.0) -> float:
     mse = np.mean((data - data.mean()) ** 2)
     return 10 * np.log10(max_val ** 2 / mse)
 
+def split_image(image, strategy="double_checkerboard") -> list[tuple[np.ndarray, np.ndarray]]:
 
-def calculate_halfmap_frc(image):
+    if strategy not in ["half", "checkerboard", "double_checkerboard"]:
+        raise ValueError("Unknown split strategy")
 
-    ny, nx = image.shape
+    if strategy == "half":
+        # # HALF SPLIT
 
-    # # HALF SPLIT
+        # Split the image into two halves along the vertical axis 
+        ny, nx = image.shape
+        half1 = image[:, :nx // 2]
+        half2 = image[:, nx // 2:]
 
-    # # Split the image into two halves along the vertical axis
-    # half1 = image[:nx//2, :nx//2]
-    # half2 = image[:nx//2, nx//2:]
+        return [(half1, half2)]
 
-    # ny, nx = half1.shape
+    if strategy == "checkerboard":
+        ##### CHECKERBOARD SPLIT
 
-    ##### CHECKERBOARD SPLIT
+        # create checkerboard mask 1px wide
+        mask = np.zeros_like(image, dtype=bool)
+        mask[::2, ::2] = 1
+        mask[1::2, 1::2] = 1
 
-    # create checkerboard mask 1px wide
-    # mask = np.zeros_like(image, dtype=bool)
-    # mask[::2, ::2] = 1
-    # mask[1::2, 1::2] = 1
+        # split image with checkerboard mask
+        half1 = image * (mask == 1)
+        half2 = image * (mask == 0)
 
-    # # split image with checkerboard mask
-    # half1 = image * (mask == 1)
-    # half2 = image * (mask == 0)
+        return [(half1, half2)]
+    
+    if strategy == "double_checkerboard":
+        ##### Double Checkerboard Split
+        mask = np.zeros_like(image, dtype=bool)
+        mask[::2, ::2] = 1
+        mask[1::2, 1::2] = 1
 
-    ##### Double Checkerboard Split
-    mask = np.zeros_like(image, dtype=bool)
-    mask[::2, ::2] = 1
-    mask[1::2, 1::2] = 1
+        mask = mask.astype(int)
 
-    mask = mask.astype(int)
+        idx = [x for x in range(0, mask.shape[0]) if x % 2 == 1]
 
-    idx = [x for x in range(0, mask.shape[0]) if x % 2 == 1]
+        for i in idx:
+            mask[i, :] = 2 * mask[i,  :]
 
-    for i in idx:
-        mask[i, :] = 2 * mask[i,  :]
+        mask2 = mask == 0
+        mask2 = mask2.astype(int)
 
-    mask2 = mask == 0
-    mask2 = mask2.astype(int)
+        idx = [x for x in range(0, mask2.shape[0]) if x % 2 == 1]
 
-    idx = [x for x in range(0, mask2.shape[0]) if x % 2 == 1]
+        for i in idx:
+            mask2[i, :] = 2 * mask2[i,  :]
 
-    for i in idx:
-        mask2[i, :] = 2 * mask2[i,  :]
+        m00 = mask == 1
+        m01 = mask == 2
 
-    m00 = mask == 1
-    m01 = mask == 2
+        m10 = mask2 == 1
+        m11 = mask2 == 2
 
-    m10 = mask2 == 1
-    m11 = mask2 == 2
+        half00 = image * m00
+        half01 = image * m01
 
-    half00 = image * m00
-    half01 = image * m01
+        half10 = image * m10
+        half11 = image * m11
 
-    half10 = image * m10
-    half11 = image * m11
+        return [(half00, half01), (half10, half11)]
 
-    # return list[(img1, img2)]
+
+def calculate_halfmap_frc(image: np.ndarray, strategy="double_checkerboard"):
+
+
+    pairs = split_image(image, strategy=strategy)
 
     frcs = []
-    for half1, half2 in [(half00, half01), (half10, half11)]:
+    for half1, half2 in pairs:
             
         ny, nx = half1.shape
 
@@ -285,7 +353,7 @@ def calculate_halfmap_frc(image):
 
         frcs.append(frc)
 
-    return frcs, (half00, half01, half10, half11)
+    return frcs, pairs
 
 #refs
 # https://pubmed.ncbi.nlm.nih.gov/16125414/
@@ -295,14 +363,3 @@ def calculate_halfmap_frc(image):
 
 def get_frc_mean(metric: np.ndarray) -> np.ndarray:
     return np.mean(metric, axis=0)
-
-# # Example usage:
-# # Load the image as a numpy array
-# image = np.load("image.npy")
-
-# # Call the function to calculate the half-map FRC
-# frc = calculate_halfmap_frc(image)
-
-# # Print the results
-# print("Half-Map Fourier Ring Correlation:")
-# print(frc)
