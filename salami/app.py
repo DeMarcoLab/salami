@@ -34,10 +34,10 @@ def main():
         df[param] = df[param].astype("float")
 
         vals = float(df[param].min()), float(df[param].max())
-        range = cols[0].slider(f"{param} Range", min_value=vals[0], max_value=vals[1], value=vals)
+        rn = cols[0].slider(f"{param} Range", min_value=vals[0], max_value=vals[1], value=vals)
 
-        params[param]["min"] = range[0]
-        params[param]["max"] = range[1]
+        params[param]["min"] = rn[0]
+        params[param]["max"] = rn[1]
 
     # filter df   
     for param in params:
@@ -98,6 +98,31 @@ def main():
     # set title
     fig.update_layout(title="FRC 0.143")
     cols[1].plotly_chart(fig)
+
+
+    col = st.selectbox("Select Metric", [param for param in params.keys()])
+    data = df[[col, "metric"]]
+
+    def _to_floats(data):
+        data = data.split("\n")
+        data = "".join(data).replace("[", "").replace("]", "").split(" ")
+
+        # drop empty strings
+        return [float(x) for x in data if x != ""]
+    
+    # plot metrics for each unique pixelsize
+    import numpy as np
+
+    vals = df[col].unique()
+    for val in vals:
+        data = df[df[col] == val]["metric"]
+        metrics = [_to_floats(d) for d in data]
+        mean_metric = np.mean(metrics, axis=0)
+
+        x = np.array(range(len(mean_metric))) / val
+        fig = px.line(x=x, y=mean_metric)
+        fig.update_layout(title=f"{col} {val}")
+        st.plotly_chart(fig)
 
 
 if __name__ == "__main__":
