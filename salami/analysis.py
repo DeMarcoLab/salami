@@ -23,17 +23,14 @@ def run_salami_analysis(path: Path = None, break_idx: int = 10):
 
     if path is None:
         path = os.path.join(settings.image.save_path, "data")
-    
     os.makedirs(path, exist_ok=True)
     
-    ss = load_protocol(settings.protocol)
-
     # load sweep parameters
     conf = utils.load_yaml(cfg.SWEEP_PATH)
     create_sweep_parameters(settings, conf, path=path)
 
     # run sweep
-    run_sweep_collection(microscope, settings, ss=ss, break_idx=break_idx, path=path)
+    run_sweep_collection(microscope, settings, break_idx=break_idx, path=path)
 
     run_salami_analysis_frc(path)
 
@@ -95,7 +92,7 @@ def create_sweep_parameters(settings: MicroscopeSettings, conf: dict = None, pat
     return df
 
 
-def run_sweep_collection(microscope, settings, ss: SalamiSettings, conf: dict = None, break_idx: int = 10, path: Path = None):
+def run_sweep_collection(microscope, settings, break_idx: int = 10, path: Path = None):
 
     if path is None:
         path = os.path.join(settings.image.save_path, "data")
