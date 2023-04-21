@@ -108,7 +108,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         # milling settings
 
     def push_button_clicked(self):
-        print("run salami pushed")
+        logging.info("run salami pushed")
         self.pushButton.setEnabled(False)
         self.pushButton.setText("Running...")
         self.pushButton.setStyleSheet("background-color: orange")
@@ -124,7 +124,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
     def run_salami(self):
 
         # image settings
-        image_settings: ImageSettings = self.image_widget.get_settings_from_ui()
+        image_settings, _, _  = self.image_widget.get_settings_from_ui()
 
         stage = self.milling_widget.get_milling_stages()[0]
 
@@ -201,12 +201,20 @@ def main():
 
     viewer = napari.Viewer(ndisplay=2)
     salami_ui = SalamiUI(viewer=viewer)
-    viewer.window.add_dock_widget(salami_ui, area="right", add_vertical_stretch=False)
+    viewer.window.add_dock_widget(salami_ui, 
+                                  area="right",
+                                  name="Salami", 
+                                  add_vertical_stretch=True)
     napari.run()
 
 
 if __name__ == "__main__":
     main()
+
+
+# Features
+# - Multiple Imaging Steps
+# - Better setup / validation
 
 
 # move to position

@@ -1,9 +1,7 @@
 # salami
 salami is a python package for volume electron microscopy
 
-(Slice And Look At My Insides)
-
-
+![Logo](docs/img/logo.png)
 
 ## Getting Started
 
@@ -17,7 +15,12 @@ $ cd salami
 $ pip install -e.
 ```
 
-4. Run viewer
+4. Run Salami
+```
+$ salami_ui
+```
+
+5. Run viewer
 ```
 $ salami_viewer
 ```
