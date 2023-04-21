@@ -133,7 +133,7 @@ def run_sweep_collection(microscope, settings, ss: SalamiSettings, conf: dict = 
         settings.image.dwell_time = dwell_time
         settings.image.hfw = hfw
         settings.image.save_path = data_path
-        settings.image.label = idx = f"{idx:06d}"
+        settings.image.label = f"{idx:06d}"
         settings.image.save = True
         settings.image.autocontrast = False
         settings.image.gamma_enabled = False
