@@ -11,6 +11,14 @@ def main():
 
     st.title("Salami Analysis")
 
+    px = st.selectbox("PX", [1536, 2*1536, 4*1536, 8*1536])
+    py = st.selectbox("PY", [1024, 2048, 4096, 8192, ])
+    dwell_time = st.selectbox("Dwell Time", [0.5, 1.0, 3.0, 5.0, 8.0])
+
+    time = dwell_time * px * py / 1e6
+    st.write(f"Time: {time} s")
+
+
     DEFAULT_PATH = path = "/home/patrick/github/data/salami/analysis/2023-04-14-07-05-07PM/data"
     path = st.text_input("Dataset Path", value=DEFAULT_PATH)
 
@@ -81,8 +89,9 @@ def main():
 
     fig = px.line(df, x="pixelsize", y="int_05", 
               color="dwell_time", 
-              line_group="current",
-              line_dash="current", 
+              facet_col="current",
+            #   line_group="current",
+            #   line_dash="current", 
               hover_name="basename")
 
     # set title
@@ -92,8 +101,9 @@ def main():
 
     fig = px.line(df, x="pixelsize", y="int_0143", 
                 color="dwell_time", 
-                line_group="current",
-                line_dash="current", 
+                facet_col="current",
+                # line_group="current",
+                # line_dash="current", 
                 hover_name="basename")
     # set title
     fig.update_layout(title="FRC 0.143")
@@ -110,6 +120,9 @@ def main():
         # drop empty strings
         return [float(x) for x in data if x != ""]
     
+
+
+
     # plot metrics for each unique pixelsize
     import numpy as np
 

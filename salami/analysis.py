@@ -166,18 +166,23 @@ def run_salami_analysis_frc(path, strategy: str = "double_checkerboard", plot: b
         mean_frc = sa.get_frc_mean(metric)
 
         # scale x axis by pixelsize
-        x = np.arange(len(mean_frc)) / pixelsize
+        img_shape = pairs[0][0].shape[0]
+        print(img_shape, pairs[0][0].shape[1])
+        x =  img_shape / np.arange(1, len(mean_frc)+1) * pixelsize
         int_05 = x[np.argmin(np.abs(mean_frc - 0.5))]
         int_0143 = x[np.argmin(np.abs(mean_frc - 0.143))]
 
         path_data.append([idx, basename, mean_frc, int_05, int_0143])
 
+        # x = 
+        print(x)
+        print(x[::-1])
         # plotting
         if plot:
             fig, ax = plt.subplots(1,2, figsize=(20,5))
             ax[0].imshow(img.data, cmap="gray")
             ax[0].set_title(f"{basename} - {pixelsize:.2f} nm/pixel")
-            ax[1].plot(x ,ndimage.median_filter(mean_frc, size=5), color="blue", label="mean (filtered)")
+            ax[1].plot(x[::-1],ndimage.median_filter(mean_frc, size=5)[::-1], color="blue", label="mean (filtered)")
             ax[1].set_title(f"FRC")
             ax[1].set_xlabel("Spatial frequency [1/nm]")
             ax[1].set_ylabel("FRC")
