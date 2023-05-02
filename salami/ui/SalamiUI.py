@@ -78,6 +78,8 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.milling_widget.pushButton_remove_milling_stage.setEnabled(False)
         self.milling_widget.pushButton_remove_milling_stage.hide()
 
+        self.milling_widget.add_milling_stage()
+
         # disable changing pattern type
         self.milling_widget.comboBox_patterns.setEnabled(False)
 
