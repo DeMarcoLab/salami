@@ -30,7 +30,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.setup_connections()
 
         # connect to microscope
-        self.microscope, self.settings = utils.setup_session(protocol_path=cfg.PROTOCOL_PATH)  # type: ignore
+        self.microscope, self.settings = utils.setup_session(manufacturer="Demo", protocol_path=cfg.PROTOCOL_PATH)  # type: ignore
 
         # reusable components
         self.image_widget = FibsemImageSettingsWidget(
