@@ -12,9 +12,17 @@ from fibsem.structures import (
 from fibsem.ui.FibsemImageSettingsWidget import FibsemImageSettingsWidget
 from fibsem.ui.FibsemMillingWidget import FibsemMillingWidget
 from fibsem.ui.FibsemMovementWidget import FibsemMovementWidget
+from fibsem.ui.FibsemSystemSetupWidget import FibsemSystemSetupWidget
 from napari.qt.threading import thread_worker
 from PyQt5 import QtWidgets
 
+import os
+from fibsem import config as fcfg
+
+from fibsem.microscope import FibsemMicroscope
+from fibsem.structures import MicroscopeSettings
+
+from fibsem import utils as futils
 import salami.config as cfg
 from salami.ui.qt import SalamiUI
 
@@ -27,41 +35,64 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.viewer.window._qt_viewer.dockLayerList.setVisible(False)
         self.viewer.window._qt_viewer.dockLayerControls.setVisible(False)
 
+        # self.setup_connections()
+
+        self.microscope: FibsemMicroscope = None
+        self.settings:MicroscopeSettings = None
+
+        self.image_widget: FibsemImageSettingsWidget = None
+        self.movement_widget: FibsemMovementWidget = None
+        self.milling_widget: FibsemMillingWidget = None
+
+        CONFIG_PATH = os.path.join(fcfg.CONFIG_PATH)
+        self.system_widget = FibsemSystemSetupWidget(
+                microscope=self.microscope,
+                settings=self.settings,
+                viewer=self.viewer,
+                config_path = CONFIG_PATH,
+            )
+        
         self.setup_connections()
+        self.tabWidget.addTab(self.system_widget, "System")
+
 
         # connect to microscope
-        self.microscope, self.settings = utils.setup_session(manufacturer="Demo", protocol_path=cfg.PROTOCOL_PATH)  # type: ignore
+        # self.microscope, self.settings = utils.setup_session(manufacturer="Demo", protocol_path=cfg.PROTOCOL_PATH)  # type: ignore
 
-        # reusable components
-        self.image_widget = FibsemImageSettingsWidget(
-            microscope=self.microscope,
-            image_settings=self.settings.image,
-            viewer=self.viewer,
-        )
-        self.movement_widget = FibsemMovementWidget(
-            microscope=self.microscope,
-            settings=self.settings,
-            viewer=self.viewer,
-            image_widget=self.image_widget,
-        )
-        self.milling_widget = FibsemMillingWidget(
-            microscope=self.microscope,
-            settings=self.settings,
-            viewer=self.viewer,
-            image_widget=self.image_widget,
-        )
+        # # reusable components
+        # self.image_widget = FibsemImageSettingsWidget(
+        #     microscope=self.microscope,
+        #     image_settings=self.settings.image,
+        #     viewer=self.viewer,
+        # )
+        # self.movement_widget = FibsemMovementWidget(
+        #     microscope=self.microscope,
+        #     settings=self.settings,
+        #     viewer=self.viewer,
+        #     image_widget=self.image_widget,
+        # )
+        # self.milling_widget = FibsemMillingWidget(
+        #     microscope=self.microscope,
+        #     settings=self.settings,
+        #     viewer=self.viewer,
+        #     image_widget=self.image_widget,
+        # )
 
-        self.gridLayout_imaging_tab.addWidget(self.image_widget, 0, 0)
-        self.gridLayout_movement_tab.addWidget(self.movement_widget, 0, 0)
-        self.gridLayout_milling_tab.addWidget(self.milling_widget, 0, 0)
+        # self.tabWidget.addTab(self.image_widget, "Image")
+        # self.tabWidget.addTab(self.movement_widget, "Movement")
+        # self.tabWidget.addTab(self.milling_widget, "Milling")
 
         # disable ui elements that are not used in salami
-        self.disable_ui_elements()
+        # self.disable_ui_elements()
 
         # set values from protocol
-        self.update_ui_from_protocol()
+        # self.update_ui_from_protocol()
 
     def setup_connections(self):
+
+        self.system_widget.set_stage_signal.connect(self.set_stage_parameters)
+        self.system_widget.connected_signal.connect(self.connect_to_microscope)
+        self.system_widget.disconnected_signal.connect(self.disconnect_from_microscope)
 
         self.pushButton.clicked.connect(self.push_button_clicked)
 
@@ -69,6 +100,88 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionLoad_Experiment.triggered.connect(self.load_experiment)
         self.actionLoad_Protocol.triggered.connect(self.load_protocol)
         self.actionSave_Protocol.triggered.connect(self.save_protocol)
+    
+    def set_stage_parameters(self):
+        if self.microscope is None:
+            return
+        self.settings.system.stage = self.system_widget.settings.system.stage   # TODO: this doesnt actually update the movement widget
+        logging.debug(f"Stage parameters set to {self.settings.system.stage}")
+        logging.info("Stage parameters set")  
+
+    def update_ui(self):
+
+        _microscope_connected = bool(self.microscope is not None)
+        self.tabWidget.setTabVisible(1, _microscope_connected)
+        self.tabWidget.setTabVisible(2, _microscope_connected)
+        self.tabWidget.setTabVisible(3, _microscope_connected)
+
+    def connect_to_microscope(self):
+        self.microscope = self.system_widget.microscope
+        self.settings = self.system_widget.settings
+        self.update_microscope_ui()
+        self.update_ui()
+
+    def disconnect_from_microscope(self):
+        
+        self.microscope.disconnect()
+        self.microscope = None
+        self.settings = None
+        self.update_microscope_ui()
+        self.update_ui()
+        self.image_widget = None
+        self.movement_widget = None
+        self.milling_widget = None
+
+    def update_microscope_ui(self):
+
+        if self.microscope is not None:
+            # reusable components
+            self.image_widget = FibsemImageSettingsWidget(
+                microscope=self.microscope,
+                image_settings=self.settings.image,
+                viewer=self.viewer,
+            )
+            # self.image_widget.setMinimumWidth(500)
+            self.movement_widget = FibsemMovementWidget(
+                microscope=self.microscope,
+                settings=self.settings,
+                viewer=self.viewer,
+                image_widget=self.image_widget,
+            )
+            self.milling_widget = FibsemMillingWidget(
+                microscope=self.microscope,
+                settings=self.settings,
+                viewer=self.viewer,
+                image_widget=self.image_widget,
+            )
+
+            # add widgets to tabs
+            self.tabWidget.addTab(self.image_widget, "Image")
+            self.tabWidget.addTab(self.movement_widget, "Movement")
+            self.tabWidget.addTab(self.milling_widget, "Milling")
+
+            # disable ui elements that are not used in salami
+            self.disable_ui_elements()
+
+            # load default protocol
+            self.settings.protocol = futils.load_protocol(cfg.PROTOCOL_PATH)
+
+            # set values from protocol
+            self.update_ui_from_protocol()
+
+        else:
+            if self.image_widget is None:
+                return
+            
+            # remove tabs
+            self.tabWidget.removeTab(3)
+            self.tabWidget.removeTab(2)
+            self.tabWidget.removeTab(1)
+
+            self.image_widget.clear_viewer()
+            self.image_widget.deleteLater()
+            self.movement_widget.deleteLater()
+            self.milling_widget.deleteLater()
 
     def disable_ui_elements(self):
         # salami specific setup
@@ -97,17 +210,19 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
 
     def update_ui_from_protocol(self):
 
-        # protocol settings
-        self.spinBox_n_steps.setValue(int(self.settings.protocol["num_steps"]))
-        self.doubleSpinBox_milling_step_size.setValue(
-            float(self.settings.protocol["step_size"]) * constants.SI_TO_NANO
-        )
+        if self.settings:
 
-        # image settings
+            # protocol settings
+            self.spinBox_n_steps.setValue(int(self.settings.protocol["num_steps"]))
+            self.doubleSpinBox_milling_step_size.setValue(
+                float(self.settings.protocol["step_size"]) * constants.SI_TO_NANO
+            )
 
-        # movement settings
+            # image settings
 
-        # milling settings
+            # movement settings
+
+            # milling settings
 
     def push_button_clicked(self):
         logging.info("run salami pushed")
@@ -119,7 +234,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
 
         worker = self.run_salami()
         worker.returned.connect(self.salami_finished)  # type: ignore
-        worker.yielded.connect(self.update_ui)  # type: ignore
+        worker.yielded.connect(self.update_ui_progress)  # type: ignore
         worker.start()
 
     @thread_worker
@@ -190,7 +305,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.pushButton.setText("Run Salami")
         self.pushButton.setStyleSheet("background-color: gray")
 
-    def update_ui(self, info: tuple):
+    def update_ui_progress(self, info: tuple):
         stage, step, total_steps, eb_image, milling_stage = info
         self.label_ui_status.setText(f"{stage} {step+1} of {total_steps}")
 
