@@ -55,39 +55,6 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.setup_connections()
         self.tabWidget.addTab(self.system_widget, "System")
 
-
-        # connect to microscope
-        # self.microscope, self.settings = utils.setup_session(manufacturer="Demo", protocol_path=cfg.PROTOCOL_PATH)  # type: ignore
-
-        # # reusable components
-        # self.image_widget = FibsemImageSettingsWidget(
-        #     microscope=self.microscope,
-        #     image_settings=self.settings.image,
-        #     viewer=self.viewer,
-        # )
-        # self.movement_widget = FibsemMovementWidget(
-        #     microscope=self.microscope,
-        #     settings=self.settings,
-        #     viewer=self.viewer,
-        #     image_widget=self.image_widget,
-        # )
-        # self.milling_widget = FibsemMillingWidget(
-        #     microscope=self.microscope,
-        #     settings=self.settings,
-        #     viewer=self.viewer,
-        #     image_widget=self.image_widget,
-        # )
-
-        # self.tabWidget.addTab(self.image_widget, "Image")
-        # self.tabWidget.addTab(self.movement_widget, "Movement")
-        # self.tabWidget.addTab(self.milling_widget, "Milling")
-
-        # disable ui elements that are not used in salami
-        # self.disable_ui_elements()
-
-        # set values from protocol
-        # self.update_ui_from_protocol()
-
     def setup_connections(self):
 
         self.system_widget.set_stage_signal.connect(self.set_stage_parameters)
@@ -141,7 +108,6 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
                 image_settings=self.settings.image,
                 viewer=self.viewer,
             )
-            # self.image_widget.setMinimumWidth(500)
             self.movement_widget = FibsemMovementWidget(
                 microscope=self.microscope,
                 settings=self.settings,
