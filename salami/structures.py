@@ -14,12 +14,37 @@ from fibsem.structures import (
 )
 from fibsem.patterning import FibsemMillingStage
 
+# create a named tuple, image, beam, detector
+
+@dataclass
+class SalamiImageSettings:
+    image: ImageSettings
+    beam: BeamSettings
+    detector: FibsemDetectorSettings
+
+    def __to_dict__(self):
+            
+            return {
+                "image": self.image.__to_dict__(),
+                "beam": self.beam.__to_dict__(),
+                "detector": self.detector.__to_dict__(),
+            }
+    
+    @classmethod
+    def __from_dict__(cls, data):
+            
+            return cls(
+                image=ImageSettings.__from_dict__(data["image"]),
+                beam=BeamSettings.__from_dict__(data["beam"]),
+                detector=FibsemDetectorSettings.__from_dict__(data["detector"]),
+            )
+
 
 @dataclass
 class SalamiSettings:
     n_steps: int
     step_size: float
-    image: list[tuple[ImageSettings, BeamSettings, FibsemDetectorSettings]] = None
+    image: list[SalamiImageSettings] = None
     mill: FibsemMillingStage = None
     _align: bool = True
     _milling: bool = True
@@ -30,10 +55,7 @@ class SalamiSettings:
         return {
             "n_steps": self.n_steps,
             "step_size": self.step_size,
-            "image": [
-                (image.__to_dict__(), beam.__to_dict__(), detector.__to_dict__())
-                for image, beam, detector in self.image
-            ],
+            "image": [image.__to_dict__() for image in self.image],
             "mill": self.mill.__to_dict__() if self.mill is not None else None,
             "_align": self._align,
             "_milling": self._milling,
@@ -43,14 +65,7 @@ class SalamiSettings:
     @classmethod
     def __from_dict__(cls, data):
 
-        image = [
-            (
-                ImageSettings.__from_dict__(image),
-                BeamSettings.__from_dict__(beam),
-                FibsemDetectorSettings.__from_dict__(detector),
-            )
-            for image, beam, detector in data["image"]
-        ]
+        image = [SalamiImageSettings.__from_dict__(image) for image in data["image"]]
         return cls(
             n_steps=data["n_steps"],
             step_size=data["step_size"],
@@ -101,8 +116,8 @@ class Experiment:
 
         return f"""Experiment: 
         Path: {self.path}
-        Settings: {self.settings}
-        Positions: {len(self.positions)}
+        Settings: {len(self.settings.image)} Images
+        Positions: {len(self.positions)} Positions
         """
 
     @staticmethod

@@ -18,6 +18,7 @@ def run_salami(
     salami_settings: SalamiSettings,
 ):
 
+    # TODO: MIGRATE THIS TO THE NEW SALAMI SETTINGS
     # image settings
     settings.image.save = True
     settings.image.autocontrast = False

@@ -14,7 +14,6 @@ from tqdm import tqdm
 from salami import analysis as sa
 from salami import config as cfg
 from salami.core import load_protocol
-from salami.structures import SalamiSettings
 
 
 def run_salami_analysis(path: Path = None, break_idx: int = 10):
