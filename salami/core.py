@@ -2,14 +2,13 @@ import logging
 
 from fibsem import acquire, alignment, calibration, milling
 from fibsem.microscope import FibsemMicroscope
-from fibsem.structures import (
-    BeamType,
-    FibsemMillingSettings,
-    FibsemPattern,
-    FibsemPatternSettings,
-    MicroscopeSettings,
-)
-from salami.structures import SalamiSettings
+from fibsem.patterning import FibsemMillingStage, get_pattern
+from fibsem.structures import (BeamSettings, BeamType, FibsemDetectorSettings,
+                               FibsemMillingSettings, FibsemPattern,
+                               FibsemPatternSettings, ImageSettings,
+                               MicroscopeSettings)
+
+from salami.structures import SalamiImageSettings, SalamiSettings
 
 
 def run_salami(
@@ -18,14 +17,6 @@ def run_salami(
     salami_settings: SalamiSettings,
 ):
 
-    # TODO: MIGRATE THIS TO THE NEW SALAMI SETTINGS
-    # image settings
-    # s.image.image.save = True
-    # salami_settings.image.image.autocontrast = False
-    # salami_settings.image.image.gamma_enabled = False
-
-    # pattern_settings = salami_settings.pattern
-    # milling_settings = salami_settings.milling
     n_steps = salami_settings.n_steps
     step_size = salami_settings.step_size
 
@@ -40,20 +31,12 @@ def run_salami(
         # slice
         MILL_START_IDX = 0
         if i > MILL_START_IDX:
+            
+            # define pattern
+            salami_settings.mill.pattern.define(protocol=salami_settings.mill.pattern.protocol, point=salami_settings.mill.pattern.point)
 
             milling.mill_stages(microscope=microscope, settings=settings, stages=[salami_settings.mill])            
 
-            # # create pattern
-            # milling.setup_milling(microscope, milling_settings)
-            # milling.draw_line(microscope, pattern_settings=pattern_settings)
-
-            # # run
-            # milling.run_milling(
-            #     microscope, milling_current=milling_settings.milling_current
-            # )
-            # milling.finish_milling(
-            #     microscope, imaging_current=settings.system.ion.current
-            # )
 
         # neutralise charge
         if salami_settings._neutralise:
@@ -77,19 +60,10 @@ def run_salami(
             img_settings.image.label = f"{i:06d}"
             eb_image = acquire.new_image(microscope, img_settings.image)
 
-        # salami_settings.image.image.save = True
-        # salami_settings.image.image.autocontrast = False
-        # salami_settings.image.image.beam_type = BeamType.ELECTRON
-        # salami_settings.image.image.label = f"{i:06d}"
-        # eb_image = acquire.new_image(microscope, settings.image)
 
         # update pattern
-        # TODO: fix this
-        # if pattern_settings.pattern is FibsemPattern.Line:
-        #     pattern_settings.start_y += step_size
-        #     pattern_settings.end_y += step_size
-        # elif pattern_settings.pattern is FibsemPattern.Rectangle:
-        #     pattern_settings.centre_y += step_size
+        # increase point.y by step_size
+        salami_settings.mill.pattern.point.y += step_size
 
         # # manually adjust working distance
         # wd_diff = step_size * np.sin(np.deg2rad(38))
@@ -102,16 +76,26 @@ def run_salami(
 def load_protocol(protocol: dict) -> SalamiSettings:
 
     # pattern settings
-    ps = FibsemPatternSettings.__from_dict__(protocol["milling"]["pattern"])
-
+    ps = get_pattern(protocol["milling"]["pattern"]["name"]).__from_dict__(protocol["milling"]["pattern"])
     ms = FibsemMillingSettings.__from_dict__(protocol["milling"])
 
-    # salami settings
+
+    beam_type = BeamType.ELECTRON
+
     ss = SalamiSettings(
         n_steps=int(protocol["num_steps"]),
         step_size=float(protocol["step_size"]),
-        pattern=ps,
-        milling=ms,
+        image = [SalamiImageSettings(
+            ImageSettings.__from_dict__(protocol["imaging"]["image"]),
+            BeamSettings(beam_type=beam_type), 
+            FibsemDetectorSettings()
+            )
+        ],
+        mill = FibsemMillingStage(
+            milling=ms,
+            pattern=ps
+        )
     )
+
 
     return ss

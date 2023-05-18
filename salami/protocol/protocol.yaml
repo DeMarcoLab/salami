@@ -6,16 +6,26 @@ milling:
   hfw: 150.0e-6
   application_file: autolamella # ThermoFisher Only
   pattern:
-    pattern: Rectangle
-    width: 50.0e-6
-    height: 1.0e-6
-    depth: 8.0e-6
-    centre_x: 0.0
-    centre_y: 0.0
-    rotation: 0.0
-    scan_direction: BottomToTop
-    cleaning_cross_section: True
-
+    name: Rectangle
+    protocol:
+      width: 50.0e-6
+      height: 1.0e-6
+      depth: 8.0e-6
+      rotation: 0.0
+      scan_direction: BottomToTop
+      cleaning_cross_section: True
+    point:
+      x: 0.0
+      y: 0.0
+imaging:
+  image:
+    resolution: [1536, 1024]
+    hfw: 150.e-6  
+    beam_type: "Electron"
+    autocontrast: True
+    dwell_time: 1.e-6
+    save: False
+    gamma_enabled: False 
 
 denoise:
   checkpoint: /home/patrick/github/salami/salami/models/model000499.pth
