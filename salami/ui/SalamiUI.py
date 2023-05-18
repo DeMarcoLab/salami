@@ -17,7 +17,7 @@ from fibsem.ui.FibsemMillingWidget import FibsemMillingWidget
 from fibsem.ui.FibsemMovementWidget import FibsemMovementWidget
 from fibsem.ui.FibsemSystemSetupWidget import FibsemSystemSetupWidget
 from napari.qt.threading import thread_worker
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets, QtCore, QtGui
 
 import salami.config as cfg
 from salami.structures import SalamiImageSettings, SalamiSettings, Experiment
@@ -42,7 +42,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
 
 
         self.exp: Experiment = None
-
+        self.worker = None
         self.microscope: FibsemMicroscope = None
         self.settings:MicroscopeSettings = None
 
@@ -52,6 +52,11 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
             image = [],
             mill= FibsemMillingStage(),
         )
+        logopath = "/home/patrick/github/salami/docs/img/logo.png"
+
+
+        
+        # self.viewer._window.setWindowIcon(QtGui.QIcon(logopath))
 
         self.image_widget: FibsemImageSettingsWidget = None
         self.movement_widget: FibsemMovementWidget = None
@@ -69,13 +74,15 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.tabWidget.addTab(self.system_widget, "System")
 
     def setup_connections(self):
-
+        
+        # system widget
         self.system_widget.set_stage_signal.connect(self.set_stage_parameters)
         self.system_widget.connected_signal.connect(self.connect_to_microscope)
         self.system_widget.disconnected_signal.connect(self.disconnect_from_microscope)
 
         self.pushButton.clicked.connect(self.push_button_clicked)
 
+        # actions
         self.actionCreate_Experiment.triggered.connect(self.create_experiment)
         self.actionLoad_Experiment.triggered.connect(self.load_experiment)
         self.actionLoad_Protocol.triggered.connect(self.load_protocol)
@@ -83,12 +90,21 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
 
         self.update_signal.connect(self.update_ui_progress)
 
+        # image stages
         self.pushButton_add_imaging.clicked.connect(self._add_imaging_stage)
         self.pushButton_add_imaging.setStyleSheet("background-color: green")
         self.pushButton_remove_imaging.clicked.connect(self._remove_imaging_stage)
         self.pushButton_remove_imaging.setStyleSheet("background-color: red")
         self.pushButton_update_imaging.clicked.connect(self._update_imaging_stage)
         self.pushButton_update_imaging.setStyleSheet("background-color: blue")
+
+        # ui updates
+        self.spinBox_n_steps.valueChanged.connect(self.update_salami_settings_from_ui)
+        self.spinBox_n_steps.setKeyboardTracking(False)
+        self.doubleSpinBox_milling_step_size.valueChanged.connect(self.update_salami_settings_from_ui)
+        self.doubleSpinBox_milling_step_size.setKeyboardTracking(False)
+        self.checkBox_align.stateChanged.connect(self.update_salami_settings_from_ui)
+        self.checkBox_neutralise.stateChanged.connect(self.update_salami_settings_from_ui)
     
     def set_stage_parameters(self):
         if self.microscope is None:
@@ -100,21 +116,16 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
     def update_ui(self):
 
         _microscope_connected = bool(self.microscope is not None)
-        self.tabWidget.setTabVisible(1, _microscope_connected)
         self.tabWidget.setTabVisible(2, _microscope_connected)
         self.tabWidget.setTabVisible(3, _microscope_connected)
+        self.tabWidget.setTabVisible(4, _microscope_connected)
 
+        _experiment_loaded = bool(self.exp is not None)
 
-
-
-
-
-
-
-
-
-
-
+        if _experiment_loaded:
+            self.label_experiment.setText(f"Experiment: {self.exp.name}")
+        else:
+            self.label_experiment.setText(f"Experiment: None")
 
         if self.salami_settings is not None:
             logging.info("update salami settings")
@@ -141,7 +152,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
             msg += f"Pattern: {self.salami_settings.mill.pattern.name}, "
             msg += f"Current: {self.salami_settings.mill.milling.milling_current*constants.SI_TO_PICO:.2f}pA, "
 
-            self.label_imaging.setText(msg)
+            self.label_settings.setText(msg)
 
 
     def _add_imaging_stage(self):
@@ -163,6 +174,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.comboBox_imaging.clear()
         self.comboBox_imaging.addItems([f"Stage {i+1:02d}" for i in range(len(self.salami_settings.image))])
 
+        self.update_ui()
         
     def _update_imaging_stage(self):
 
@@ -185,6 +197,9 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.salami_settings.step_size = (
             float(self.doubleSpinBox_milling_step_size.value()) * constants.NANO_TO_SI
         )
+        self.salami_settings._align = self.checkBox_align.isChecked()
+        self.salami_settings._neutralise = self.checkBox_neutralise.isChecked()
+
         self.salami_settings.mill=self.milling_widget.get_milling_stages()[0]
 
 
@@ -202,8 +217,6 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.milling_widget.comboBox_patterns.setEnabled(False)
 
     def create_experiment(self):
-        print("create experiment")
-
 
         PATH = _get_directory_ui(msg="Select a directory to save the experiment", path=cfg.LOG_PATH, parent=self)
         if PATH == "":
@@ -211,7 +224,14 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
             return
 
         # get name
-        NAME, okPressed = _get_text_ui(msg="Enter a name for the experiment", parent=self)
+
+        # get current date
+        from datetime import datetime
+        now = datetime.now()
+        DATE = now.strftime("%Y-%m-%d-%H-%M")
+        # TIME = now.strftime("%H-%M")
+
+        NAME, okPressed = _get_text_ui(msg="Enter a name for the experiment", default=f"salami-{DATE}", parent=self)
 
         if NAME == "" or not okPressed:
             logging.info("No name selected")
@@ -219,6 +239,8 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
 
         self.exp = Experiment(path=PATH, name=NAME)
         self.exp.save()
+
+        self.update_ui()
 
     def load_experiment(self):
         print("load experiment")
@@ -230,6 +252,8 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
             return
         
         self.exp = Experiment.load(fname=PATH)
+
+        self.update_ui()
 
     def load_protocol(self):
         print("load protocol")
@@ -256,27 +280,45 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
     def push_button_clicked(self):
         logging.info("run salami pushed")
         self.pushButton.setEnabled(False)
-        self.pushButton.setText("Running...")
-        self.pushButton.setStyleSheet("background-color: orange")
 
         # TODO: disable other microscope interactions
 
         self.update_salami_settings_from_ui()
 
-        worker = self.run_salami()
-        worker.returned.connect(self.salami_finished)  # type: ignore
-        worker.start()
+        if self.worker:
+            pass
+            # TODO: simplify
+            # if self.worker.is_running:
+            #     self.worker.quit()
+            #     logging.info("Worker is already running, pausing...")
+            #     self.pushButton.setText("Salami Pausing...")
+            #     self.pushButton.setStyleSheet("color: black; background-color: yellow")
+            #     return
+            # elif self.worker.is_paused:
+            #     logging.info("Worker is paused, resuming...")
+            #     self.worker.resume()
+            #     self.pushButton.setText("Running...")
+            #     self.pushButton.setStyleSheet("background-color: orange")
+            #     return
+        else:
+            self.pushButton.setText("Running...")
+            self.pushButton.setStyleSheet("background-color: orange")
+            self.worker = self.run_salami()
+            self.worker.returned.connect(self.salami_finished)  # type: ignore
+            self.worker.start()
+
 
     @thread_worker
     def run_salami(self):
 
-        run_salami(self.microscope, self.settings, self.salami_settings, parent_ui=self)
+        yield run_salami(self.microscope, self.settings, self.salami_settings, parent_ui=self)
 
     def salami_finished(self):
         self.label_ui_status.setText("Finished.")
         self.pushButton.setEnabled(True)
         self.pushButton.setText("Run Salami")
         self.pushButton.setStyleSheet("background-color: green")
+        self.worker = None
 
     def update_ui_progress(self, info: dict):
 
