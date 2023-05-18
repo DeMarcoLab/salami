@@ -52,11 +52,12 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
             image = [],
             mill= FibsemMillingStage(),
         )
-        logopath = "/home/patrick/github/salami/docs/img/logo.png"
 
-
-        
-        # self.viewer._window.setWindowIcon(QtGui.QIcon(logopath))
+        # set label as logo, scale to 50x50
+        logopath = os.path.join(os.path.dirname(cfg.SALAMI_PATH), "docs", "img", "logo.png")
+        self.label_logo.setScaledContents(True)
+        self.label_logo.setFixedSize(50, 50)
+        self.label_logo.setPixmap(QtGui.QPixmap(logopath))
 
         self.image_widget: FibsemImageSettingsWidget = None
         self.movement_widget: FibsemMovementWidget = None
