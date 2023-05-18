@@ -25,7 +25,9 @@ imaging:
     autocontrast: True
     dwell_time: 1.e-6
     save: False
-    gamma_enabled: False 
+    gamma_enabled: False
+  detector: null
+  beam: null
 
 denoise:
   checkpoint: /home/patrick/github/salami/salami/models/model000499.pth

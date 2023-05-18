@@ -1,33 +1,38 @@
 import logging
+import os
 
 import napari
 import napari.utils.notifications
-from fibsem import acquire, alignment, constants, milling, utils
-from fibsem.structures import (
-    BeamType,
-    FibsemImage,
-    FibsemPattern,
-    ImageSettings,
-)
+from fibsem import acquire, alignment
+from fibsem import config as fcfg
+from fibsem import constants, milling
+from fibsem import utils
+from fibsem import utils as futils
+from fibsem.microscope import FibsemMicroscope
+from fibsem.patterning import FibsemMillingStage
+from fibsem.structures import (BeamType, FibsemImage, FibsemPattern,
+                               ImageSettings, MicroscopeSettings)
 from fibsem.ui.FibsemImageSettingsWidget import FibsemImageSettingsWidget
 from fibsem.ui.FibsemMillingWidget import FibsemMillingWidget
 from fibsem.ui.FibsemMovementWidget import FibsemMovementWidget
 from fibsem.ui.FibsemSystemSetupWidget import FibsemSystemSetupWidget
 from napari.qt.threading import thread_worker
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, QtCore
 
-import os
-from fibsem import config as fcfg
-
-from fibsem.microscope import FibsemMicroscope
-from fibsem.structures import MicroscopeSettings
-
-from fibsem import utils as futils
 import salami.config as cfg
+from salami.structures import SalamiImageSettings, SalamiSettings, Experiment
 from salami.ui.qt import SalamiUI
+from salami.core import run_salami
+
+from fibsem.ui.utils import _get_directory_ui, _get_file_ui, _get_save_file_ui, _get_text_ui
+
+# get path
+from salami import config as cfg
 
 
 class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
+    update_signal = QtCore.pyqtSignal(dict)
+
     def __init__(self, viewer: napari.Viewer):
         super(SalamiUI, self).__init__()
         self.setupUi(self)
@@ -35,10 +40,18 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.viewer.window._qt_viewer.dockLayerList.setVisible(False)
         self.viewer.window._qt_viewer.dockLayerControls.setVisible(False)
 
-        # self.setup_connections()
+
+        self.exp: Experiment = None
 
         self.microscope: FibsemMicroscope = None
         self.settings:MicroscopeSettings = None
+
+        self.salami_settings:SalamiSettings = SalamiSettings(
+            n_steps=1,
+            step_size=1,
+            image = [],
+            mill= FibsemMillingStage(),
+        )
 
         self.image_widget: FibsemImageSettingsWidget = None
         self.movement_widget: FibsemMovementWidget = None
@@ -67,6 +80,15 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionLoad_Experiment.triggered.connect(self.load_experiment)
         self.actionLoad_Protocol.triggered.connect(self.load_protocol)
         self.actionSave_Protocol.triggered.connect(self.save_protocol)
+
+        self.update_signal.connect(self.update_ui_progress)
+
+        self.pushButton_add_imaging.clicked.connect(self._add_imaging_stage)
+        self.pushButton_add_imaging.setStyleSheet("background-color: green")
+        self.pushButton_remove_imaging.clicked.connect(self._remove_imaging_stage)
+        self.pushButton_remove_imaging.setStyleSheet("background-color: red")
+        self.pushButton_update_imaging.clicked.connect(self._update_imaging_stage)
+        self.pushButton_update_imaging.setStyleSheet("background-color: blue")
     
     def set_stage_parameters(self):
         if self.microscope is None:
@@ -82,6 +104,192 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.tabWidget.setTabVisible(2, _microscope_connected)
         self.tabWidget.setTabVisible(3, _microscope_connected)
 
+
+
+
+
+
+
+
+
+
+
+
+
+        if self.salami_settings is not None:
+            logging.info("update salami settings")
+
+            msg = "Salami Settings:\n"
+            msg += f"Number of steps: {self.salami_settings.n_steps}, "
+            msg += f"Step size: {self.salami_settings.step_size*constants.SI_TO_NANO:.2f}nm\n"
+            msg += f"Alignment: {self.salami_settings._align}, Charge Neutralisation: {self.salami_settings._neutralise}\n\n"
+
+            msg += f"{len(self.salami_settings.image)} Imaging Stages:\n"
+            ssi: SalamiImageSettings
+            for i, ssi in enumerate(self.salami_settings.image):
+
+                msg += f"Stage {i+1:02d}\n"
+                msg += f"image: hfw={ssi.image.hfw*constants.SI_TO_MICRO:.2f}um, "
+                msg += f"dwell_time:{ssi.image.dwell_time*constants.SI_TO_MICRO:.2f}us, "
+                msg += f"resolution: {ssi.image.resolution}\n"
+                msg += f"beam: {ssi.beam.working_distance*constants.SI_TO_MILLI:.2f}mm, "
+                msg += f"current: {ssi.beam.beam_current*constants.SI_TO_PICO:.2f}pA, "
+                msg += f"voltage: {ssi.beam.voltage*constants.SI_TO_KILO:.2f}kV\n"
+                msg += f"detector: {ssi.detector.type}, {ssi.detector.mode}\n\n"
+
+            msg += "Milling: \n"
+            msg += f"Pattern: {self.salami_settings.mill.pattern.name}, "
+            msg += f"Current: {self.salami_settings.mill.milling.milling_current*constants.SI_TO_PICO:.2f}pA, "
+
+            self.label_imaging.setText(msg)
+
+
+    def _add_imaging_stage(self):
+
+        self.salami_settings.image.append(SalamiImageSettings())
+
+        self._update_combo_box()
+    
+    def _remove_imaging_stage(self):
+
+        # remove current index
+        current_idx = self.comboBox_imaging.currentIndex()
+        self.salami_settings.image.pop(current_idx)
+
+        self._update_combo_box()
+
+    def _update_combo_box(self):
+        # update combo box
+        self.comboBox_imaging.clear()
+        self.comboBox_imaging.addItems([f"Stage {i+1:02d}" for i in range(len(self.salami_settings.image))])
+
+        
+    def _update_imaging_stage(self):
+
+        # image settings
+        image_settings, detector_settings, beam_settings  = self.image_widget.get_settings_from_ui()
+
+        current_idx = self.comboBox_imaging.currentIndex()
+        self.salami_settings.image[current_idx] = SalamiImageSettings(
+            image=image_settings,
+            beam=beam_settings,
+            detector=detector_settings,
+        )
+        logging.info(f"Updated imaging stage {current_idx+1:02d}")
+        self.update_ui()
+
+    def update_salami_settings_from_ui(self):
+
+        # general settings
+        self.salami_settings.n_steps = int(self.spinBox_n_steps.value())
+        self.salami_settings.step_size = (
+            float(self.doubleSpinBox_milling_step_size.value()) * constants.NANO_TO_SI
+        )
+        self.salami_settings.mill=self.milling_widget.get_milling_stages()[0]
+
+
+    def disable_ui_elements(self):
+        # salami specific setup
+        # disable adding/removing milling stages
+        self.milling_widget.pushButton_add_milling_stage.setEnabled(False)
+        self.milling_widget.pushButton_add_milling_stage.hide()
+        self.milling_widget.pushButton_remove_milling_stage.setEnabled(False)
+        self.milling_widget.pushButton_remove_milling_stage.hide()
+
+        self.milling_widget.add_milling_stage()
+
+        # disable changing pattern type
+        self.milling_widget.comboBox_patterns.setEnabled(False)
+
+    def create_experiment(self):
+        print("create experiment")
+
+
+        PATH = _get_directory_ui(msg="Select a directory to save the experiment", path=cfg.LOG_PATH, parent=self)
+        if PATH == "":
+            logging.info("No path selected")
+            return
+
+        # get name
+        NAME, okPressed = _get_text_ui(msg="Enter a name for the experiment", parent=self)
+
+        if NAME == "" or not okPressed:
+            logging.info("No name selected")
+            return
+
+        self.exp = Experiment(path=PATH, name=NAME)
+        self.exp.save()
+
+    def load_experiment(self):
+        print("load experiment")
+
+        PATH = _get_file_ui(msg="Select an experiment file", path=cfg.LOG_PATH, parent=self)
+
+        if PATH == "":
+            logging.info("No path selected")
+            return
+        
+        self.exp = Experiment.load(fname=PATH)
+
+    def load_protocol(self):
+        print("load protocol")
+
+    def save_protocol(self):
+        print("save protocol")
+
+    def update_ui_from_protocol(self):
+
+        if self.settings:
+
+            # protocol settings
+            self.spinBox_n_steps.setValue(int(self.settings.protocol["num_steps"]))
+            self.doubleSpinBox_milling_step_size.setValue(
+                float(self.settings.protocol["step_size"]) * constants.SI_TO_NANO
+            )
+
+            # image settings
+
+            # movement settings
+
+            # milling settings
+
+    def push_button_clicked(self):
+        logging.info("run salami pushed")
+        self.pushButton.setEnabled(False)
+        self.pushButton.setText("Running...")
+        self.pushButton.setStyleSheet("background-color: orange")
+
+        # TODO: disable other microscope interactions
+
+        self.update_salami_settings_from_ui()
+
+        worker = self.run_salami()
+        worker.returned.connect(self.salami_finished)  # type: ignore
+        worker.start()
+
+    @thread_worker
+    def run_salami(self):
+
+        run_salami(self.microscope, self.settings, self.salami_settings, parent_ui=self)
+
+    def salami_finished(self):
+        self.label_ui_status.setText("Finished.")
+        self.pushButton.setEnabled(True)
+        self.pushButton.setText("Run Salami")
+        self.pushButton.setStyleSheet("background-color: green")
+
+    def update_ui_progress(self, info: dict):
+
+        if info["name"] == "Done":
+            self.milling_widget.update_ui([info["milling_stage"]])
+
+        if info["name"] == "Image Update":
+            self.image_widget.update_viewer(info["image"].data, name=BeamType.ELECTRON.name)
+
+        msg = f"{info['name']}: ({info['step']+1}/{info['total_steps']})"
+        self.label_ui_status.setText(msg)
+
+    # TODO: move this to system wideget??
     def connect_to_microscope(self):
         self.microscope = self.system_widget.microscope
         self.settings = self.system_widget.settings
@@ -140,144 +348,18 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
                 return
             
             # remove tabs
+            self.tabWidget.removeTab(4)
             self.tabWidget.removeTab(3)
             self.tabWidget.removeTab(2)
-            self.tabWidget.removeTab(1)
 
             self.image_widget.clear_viewer()
             self.image_widget.deleteLater()
             self.movement_widget.deleteLater()
             self.milling_widget.deleteLater()
 
-    def disable_ui_elements(self):
-        # salami specific setup
-        # disable adding/removing milling stages
-        self.milling_widget.pushButton_add_milling_stage.setEnabled(False)
-        self.milling_widget.pushButton_add_milling_stage.hide()
-        self.milling_widget.pushButton_remove_milling_stage.setEnabled(False)
-        self.milling_widget.pushButton_remove_milling_stage.hide()
 
-        self.milling_widget.add_milling_stage()
 
-        # disable changing pattern type
-        self.milling_widget.comboBox_patterns.setEnabled(False)
 
-    def create_experiment(self):
-        print("create experiment")
-
-    def load_experiment(self):
-        print("load experiment")
-
-    def load_protocol(self):
-        print("load protocol")
-
-    def save_protocol(self):
-        print("save protocol")
-
-    def update_ui_from_protocol(self):
-
-        if self.settings:
-
-            # protocol settings
-            self.spinBox_n_steps.setValue(int(self.settings.protocol["num_steps"]))
-            self.doubleSpinBox_milling_step_size.setValue(
-                float(self.settings.protocol["step_size"]) * constants.SI_TO_NANO
-            )
-
-            # image settings
-
-            # movement settings
-
-            # milling settings
-
-    def push_button_clicked(self):
-        logging.info("run salami pushed")
-        self.pushButton.setEnabled(False)
-        self.pushButton.setText("Running...")
-        self.pushButton.setStyleSheet("background-color: orange")
-
-        # TODO: disable other microscope interactions
-
-        worker = self.run_salami()
-        worker.returned.connect(self.salami_finished)  # type: ignore
-        worker.yielded.connect(self.update_ui_progress)  # type: ignore
-        worker.start()
-
-    @thread_worker
-    def run_salami(self):
-
-        # image settings
-        image_settings, _, _  = self.image_widget.get_settings_from_ui()
-
-        stage = self.milling_widget.get_milling_stages()[0]
-
-        # TODO: we need to ensure that the patterns are defined first...
-
-        # general settings
-        n_steps = int(self.spinBox_n_steps.value())
-        milling_step_size = (
-            float(self.doubleSpinBox_milling_step_size.value()) * constants.NANO_TO_SI
-        )
-
-        # housekeeping
-        image_settings.beam_type = BeamType.ELECTRON
-        base_label = image_settings.label
-
-        import time
-
-        eb_image: FibsemImage = None  # type: ignore
-        for step_no in range(n_steps):
-            logging.info(f"---------- STEP {step_no+1} of {n_steps} ----------")
-
-            yield ("Milling", step_no, n_steps, None, None)
-            milling.setup_milling(self.microscope, mill_settings=stage.milling)
-            milling.draw_patterns(self.microscope, stage.pattern.patterns)
-            milling.run_milling(
-                self.microscope,
-                milling_current=stage.milling.milling_current,
-                asynch=False,
-            )
-            milling.finish_milling(
-                self.microscope, imaging_current=self.settings.system.ion.current
-            )
-            time.sleep(1)
-
-            if eb_image is not None:
-                yield ("Aligning", step_no, n_steps, None, None)
-                alignment.beam_shift_alignment(
-                    self.microscope, image_settings, eb_image
-                )
-                time.sleep(1)
-
-            yield ("Acquiring", step_no, n_steps, None, None)
-            image_settings.label = f"{base_label}_{step_no:06d}"
-            eb_image = acquire.new_image(self.microscope, image_settings)
-            time.sleep(1)
-
-            # update pattern
-            pattern = stage.pattern.patterns[0]
-            if pattern.pattern is FibsemPattern.Line:
-                pattern.end_y += milling_step_size
-                pattern.start_y += milling_step_size
-            if pattern.pattern is FibsemPattern.Rectangle:
-                pattern.centre_y += milling_step_size
-
-            # ui update
-            yield ("Update", step_no, n_steps, eb_image, stage)
-
-    def salami_finished(self):
-        self.label_ui_status.setText("Finished.")
-        self.pushButton.setEnabled(True)
-        self.pushButton.setText("Run Salami")
-        self.pushButton.setStyleSheet("background-color: gray")
-
-    def update_ui_progress(self, info: tuple):
-        stage, step, total_steps, eb_image, milling_stage = info
-        self.label_ui_status.setText(f"{stage} {step+1} of {total_steps}")
-
-        if stage == "Update":
-            self.image_widget.update_viewer(eb_image.data, name=BeamType.ELECTRON.name)
-            self.milling_widget.update_ui([milling_stage])
 
 
 def main():

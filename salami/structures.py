@@ -18,9 +18,9 @@ from fibsem.patterning import FibsemMillingStage
 
 @dataclass
 class SalamiImageSettings:
-    image: ImageSettings
-    beam: BeamSettings
-    detector: FibsemDetectorSettings
+    image: ImageSettings = None
+    beam: BeamSettings = None
+    detector: FibsemDetectorSettings = None
 
     def __to_dict__(self):
             
@@ -42,8 +42,8 @@ class SalamiImageSettings:
 
 @dataclass
 class SalamiSettings:
-    n_steps: int
-    step_size: float
+    n_steps: int = 10
+    step_size: float = 100e-9
     image: list[SalamiImageSettings] = None
     mill: FibsemMillingStage = None
     _align: bool = True
@@ -65,7 +65,10 @@ class SalamiSettings:
     @classmethod
     def __from_dict__(cls, data):
 
-        image = [SalamiImageSettings.__from_dict__(image) for image in data["image"]]
+        if data is None:
+            return cls()
+
+        image = [SalamiImageSettings.__from_dict__(image) for image in data["image"]] if data["image"] is not None else []
         return cls(
             n_steps=data["n_steps"],
             step_size=data["step_size"],
