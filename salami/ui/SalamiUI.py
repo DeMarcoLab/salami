@@ -24,11 +24,16 @@ from salami.structures import SalamiImageSettings, SalamiSettings, Experiment
 from salami.ui.qt import SalamiUI
 from salami.core import run_salami
 
-from fibsem.ui.utils import _get_directory_ui, _get_file_ui, _get_save_file_ui, _get_text_ui
+from fibsem.ui.utils import _get_directory_ui, _get_file_ui, _get_save_file_ui, _get_text_ui, message_box_ui, _display_logo
 
 # get path
 from salami import config as cfg
 
+INSTRUCTIONS = {"START": "Instructions:\nPlease create / load an experiment, and connect to the microscope.",
+                "SETUP": "Instructions:\nPlease setup your experiment, imaging and milling settings.",
+                "SETUP_IMAGING": "Instructions:\nPlease add an imaging stage.",
+                "SETUP_MILLING": "Instructions:\nPlease add a milling stage.",
+                "RUN": "Instructions:\nPress Run Salami to begin.",}
 
 class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
     update_signal = QtCore.pyqtSignal(dict)
@@ -40,24 +45,10 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.viewer.window._qt_viewer.dockLayerList.setVisible(False)
         self.viewer.window._qt_viewer.dockLayerControls.setVisible(False)
 
-
         self.exp: Experiment = None
         self.worker = None
         self.microscope: FibsemMicroscope = None
         self.settings:MicroscopeSettings = None
-
-        self.salami_settings:SalamiSettings = SalamiSettings(
-            n_steps=1,
-            step_size=1,
-            image = [],
-            mill= FibsemMillingStage(),
-        )
-
-        # set label as logo, scale to 50x50
-        logopath = os.path.join(os.path.dirname(cfg.SALAMI_PATH), "docs", "img", "logo.png")
-        self.label_logo.setScaledContents(True)
-        self.label_logo.setFixedSize(50, 50)
-        self.label_logo.setPixmap(QtGui.QPixmap(logopath))
 
         self.image_widget: FibsemImageSettingsWidget = None
         self.movement_widget: FibsemMovementWidget = None
@@ -70,9 +61,14 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
                 viewer=self.viewer,
                 config_path = CONFIG_PATH,
             )
-        
-        self.setup_connections()
         self.tabWidget.addTab(self.system_widget, "System")
+        self.setup_connections()
+
+        # set label as logo, scale to 50x50
+        logopath = os.path.join(os.path.dirname(cfg.SALAMI_PATH), "docs", "img", "logo.png")
+        _display_logo(logopath, self.label_logo, [75, 75])
+
+        self.update_ui()
 
     def setup_connections(self):
         
@@ -122,43 +118,98 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.tabWidget.setTabVisible(4, _microscope_connected)
 
         _experiment_loaded = bool(self.exp is not None)
+        _protocol_loaded = False
+        if _experiment_loaded:
+            _protocol_loaded = bool(self.exp.settings is not None) # TODO: properly validate if all conditions are met
 
+        self.actionLoad_Protocol.setVisible(_experiment_loaded)
+        self.actionSave_Protocol.setVisible(_experiment_loaded)
+        self.tabWidget.setTabVisible(0, _experiment_loaded and _microscope_connected)
+
+        _valid_imaging = []
+        _valid_milling = False
         if _experiment_loaded:
             self.label_experiment.setText(f"Experiment: {self.exp.name}")
+
+            if self.exp.settings is not None:
+                logging.info("update salami settings")
+
+                msg = "Salami Settings:\n"
+                msg += f"Number of steps: {self.exp.settings.n_steps}, "
+                msg += f"Step size: {self.exp.settings.step_size*constants.SI_TO_NANO:.2f}nm\n"
+                msg += f"Alignment: {self.exp.settings._align}, Charge Neutralisation: {self.exp.settings._neutralise}\n\n"
+
+
+
+                msg += f"Imaging Stages:\n"
+                ssi: SalamiImageSettings
+                for i, ssi in enumerate(self.exp.settings.image):
+
+                    msg += f"Stage {i+1:02d}\n"
+                    _val = ssi.image is not None and ssi.beam is not None and ssi.detector is not None
+                    if _val:
+                        msg += f"image: hfw={ssi.image.hfw*constants.SI_TO_MICRO:.2f}um, "
+                        msg += f"dwell_time:{ssi.image.dwell_time*constants.SI_TO_MICRO:.2f}us, "
+                        msg += f"resolution: {ssi.image.resolution}\n"
+                        msg += f"beam: {ssi.beam.working_distance*constants.SI_TO_MILLI:.2f}mm, "
+                        msg += f"current: {ssi.beam.beam_current*constants.SI_TO_PICO:.2f}pA, "
+                        msg += f"voltage: {ssi.beam.voltage*constants.SI_TO_KILO:.2f}kV\n"
+                        msg += f"detector: {ssi.detector.type}, {ssi.detector.mode}\n"
+                    else:
+                        msg += "Not set. Please update the imaging stage\n"
+                    _valid_imaging.append(_val)
+
+                msg += "\nMilling: \n"
+                _valid_milling = (self.exp.settings.mill.pattern is not None and 
+                                  self.exp.settings.mill.milling is not None and 
+                                  self.exp.settings.mill.pattern.protocol is not None)
+                if _valid_milling:
+                    msg += f"Pattern: {self.exp.settings.mill.pattern.name}, "
+                    msg += f"Width: {self.exp.settings.mill.pattern.protocol['width']*constants.SI_TO_MICRO:.2f}um, "
+                    msg += f"Depth: {self.exp.settings.mill.pattern.protocol['depth']*constants.SI_TO_MICRO:.2f}um\n"
+                    msg += f"Current: {self.exp.settings.mill.milling.milling_current*constants.SI_TO_PICO:.2f}pA, "
+                else:
+                    msg += "Not set. Please update the pattern.\n"
+                self.label_settings.setText(msg)
+                
         else:
-            self.label_experiment.setText(f"Experiment: None")
+            self.label_experiment.setText("Experiment: None")
 
-        if self.salami_settings is not None:
-            logging.info("update salami settings")
+        _valid_imaging = all(_valid_imaging) and len(_valid_imaging) > 0
+        _valid_protocol = _valid_imaging and _valid_milling
 
-            msg = "Salami Settings:\n"
-            msg += f"Number of steps: {self.salami_settings.n_steps}, "
-            msg += f"Step size: {self.salami_settings.step_size*constants.SI_TO_NANO:.2f}nm\n"
-            msg += f"Alignment: {self.salami_settings._align}, Charge Neutralisation: {self.salami_settings._neutralise}\n\n"
+        # instructions
+        if not _experiment_loaded or not _microscope_connected:    
+            self.label_instructions.setText(INSTRUCTIONS["START"])
+        elif not _valid_imaging:
+            self.label_instructions.setText(INSTRUCTIONS["SETUP_IMAGING"])
+        elif not _valid_milling:
+            self.label_instructions.setText(INSTRUCTIONS["SETUP_MILLING"])
+        elif not _protocol_loaded or not _valid_protocol:
+            self.label_instructions.setText(INSTRUCTIONS["SETUP"])
+        else:
+            self.label_instructions.setText(INSTRUCTIONS["RUN"])
 
-            msg += f"{len(self.salami_settings.image)} Imaging Stages:\n"
-            ssi: SalamiImageSettings
-            for i, ssi in enumerate(self.salami_settings.image):
+        # status labels, color green if valid/connected, red otherwise
+        self.label_status_microscope.setText(f"Microscope: {'Connected' if _microscope_connected else 'Disconnected'}")
+        self.label_status_microscope.setStyleSheet("background-color: green" if _microscope_connected else "background-color: orange")
+        self.label_status_experiment.setText(f"Experiment: {'Loaded' if _experiment_loaded else 'Not Loaded'}")
+        self.label_status_experiment.setStyleSheet("background-color: green" if _experiment_loaded else "background-color: orange")
+        self.label_status_imaging.setText(f"Imaging: {'Valid' if _valid_imaging else 'Invalid'}")
+        self.label_status_imaging.setStyleSheet("background-color: green" if _valid_imaging else "background-color: orange")
+        self.label_status_milling.setText(f"Milling: {'Valid' if _valid_milling else 'Invalid'}")
+        self.label_status_milling.setStyleSheet("background-color: green" if _valid_milling else "background-color: orange")
 
-                msg += f"Stage {i+1:02d}\n"
-                msg += f"image: hfw={ssi.image.hfw*constants.SI_TO_MICRO:.2f}um, "
-                msg += f"dwell_time:{ssi.image.dwell_time*constants.SI_TO_MICRO:.2f}us, "
-                msg += f"resolution: {ssi.image.resolution}\n"
-                msg += f"beam: {ssi.beam.working_distance*constants.SI_TO_MILLI:.2f}mm, "
-                msg += f"current: {ssi.beam.beam_current*constants.SI_TO_PICO:.2f}pA, "
-                msg += f"voltage: {ssi.beam.voltage*constants.SI_TO_KILO:.2f}kV\n"
-                msg += f"detector: {ssi.detector.type}, {ssi.detector.mode}\n\n"
-
-            msg += "Milling: \n"
-            msg += f"Pattern: {self.salami_settings.mill.pattern.name}, "
-            msg += f"Current: {self.salami_settings.mill.milling.milling_current*constants.SI_TO_PICO:.2f}pA, "
-
-            self.label_settings.setText(msg)
-
+        # buttons
+        self.pushButton.setEnabled(_valid_protocol)
+        if _valid_protocol:
+            self.pushButton.setStyleSheet("background-color: green")
+        else:
+            self.pushButton.setStyleSheet("background-color: none")
 
     def _add_imaging_stage(self):
 
-        self.salami_settings.image.append(SalamiImageSettings())
+        self.exp.settings.image.append(SalamiImageSettings())
 
         self._update_combo_box()
     
@@ -166,14 +217,14 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
 
         # remove current index
         current_idx = self.comboBox_imaging.currentIndex()
-        self.salami_settings.image.pop(current_idx)
+        self.exp.settings.image.pop(current_idx)
 
         self._update_combo_box()
 
     def _update_combo_box(self):
         # update combo box
         self.comboBox_imaging.clear()
-        self.comboBox_imaging.addItems([f"Stage {i+1:02d}" for i in range(len(self.salami_settings.image))])
+        self.comboBox_imaging.addItems([f"Stage {i+1:02d}" for i in range(len(self.exp.settings.image))])
 
         self.update_ui()
         
@@ -183,25 +234,32 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         image_settings, detector_settings, beam_settings  = self.image_widget.get_settings_from_ui()
 
         current_idx = self.comboBox_imaging.currentIndex()
-        self.salami_settings.image[current_idx] = SalamiImageSettings(
+        self.exp.settings.image[current_idx] = SalamiImageSettings(
             image=image_settings,
             beam=beam_settings,
             detector=detector_settings,
         )
         logging.info(f"Updated imaging stage {current_idx+1:02d}")
+        self.update_salami_settings_from_ui()
         self.update_ui()
 
     def update_salami_settings_from_ui(self):
 
         # general settings
-        self.salami_settings.n_steps = int(self.spinBox_n_steps.value())
-        self.salami_settings.step_size = (
+        self.exp.settings.n_steps = int(self.spinBox_n_steps.value())
+        self.exp.settings.step_size = (
             float(self.doubleSpinBox_milling_step_size.value()) * constants.NANO_TO_SI
         )
-        self.salami_settings._align = self.checkBox_align.isChecked()
-        self.salami_settings._neutralise = self.checkBox_neutralise.isChecked()
+        self.exp.settings._align = self.checkBox_align.isChecked()
+        self.exp.settings._neutralise = self.checkBox_neutralise.isChecked()
 
-        self.salami_settings.mill=self.milling_widget.get_milling_stages()[0]
+        # mill stage
+        self.exp.settings.mill=self.milling_widget.get_milling_stages()[0]
+
+        if self.sender() is self.pushButton_update_imaging:
+            return
+
+        self.update_ui()
 
 
     def disable_ui_elements(self):
@@ -230,8 +288,6 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         from datetime import datetime
         now = datetime.now()
         DATE = now.strftime("%Y-%m-%d-%H-%M")
-        # TIME = now.strftime("%H-%M")
-
         NAME, okPressed = _get_text_ui(msg="Enter a name for the experiment", default=f"salami-{DATE}", parent=self)
 
         if NAME == "" or not okPressed:
@@ -241,6 +297,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.exp = Experiment(path=PATH, name=NAME)
         self.exp.save()
 
+        napari.utils.notifications.show_info(f"Created experiment {self.exp.name}")
         self.update_ui()
 
     def load_experiment(self):
@@ -253,23 +310,47 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
             return
         
         self.exp = Experiment.load(fname=PATH)
-
+        
+        napari.utils.notifications.show_info(f"Loaded experiment {self.exp.name}")
         self.update_ui()
 
     def load_protocol(self):
-        print("load protocol")
+
+        if self.exp is None:
+            napari.utils.notifications.show_info(f"Please create an experiment first.")
+            return
+
+        PATH = _get_file_ui(msg="Select a protocol file", path=cfg.PROTOCOL_PATH, parent=self)
+
+        if PATH == "":
+            napari.utils.notifications.show_info(f"No path selected")
+            logging.info("No path selected")
+            return
+        
+        self.exp.settings = SalamiSettings.__from_dict__(futils.load_yaml(path=PATH))
+        napari.utils.notifications.show_info(f"Loaded Protocol from {os.path.basename(PATH)}")
+        self.update_ui()
 
     def save_protocol(self):
-        print("save protocol")
 
-    def update_ui_from_protocol(self):
+        # convert exp.settings to dict, save to yaml
+        PATH = _get_save_file_ui(msg="Select a protocol file", path=cfg.PROTOCOL_PATH, parent=self)
 
-        if self.settings:
+        if PATH == "":
+            logging.info("No path selected")
+            return
+        
+        futils.save_yaml(path=PATH, data=self.exp.settings.__to_dict__())
+        napari.utils.notifications.show_info(f"Saved Protocol to {os.path.basename(PATH)}")
+
+    def update_ui_from_settings(self):
+
+        if self.exp.settings:
 
             # protocol settings
-            self.spinBox_n_steps.setValue(int(self.settings.protocol["num_steps"]))
+            self.spinBox_n_steps.setValue(int(self.exp.settings.num_steps))
             self.doubleSpinBox_milling_step_size.setValue(
-                float(self.settings.protocol["step_size"]) * constants.SI_TO_NANO
+                float(self.exp.settings.step_size) * constants.SI_TO_NANO
             )
 
             # image settings
@@ -284,7 +365,8 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
 
         # TODO: disable other microscope interactions
 
-        self.update_salami_settings_from_ui()
+        # self.update_salami_settings_from_ui()
+        self.exp.save()
 
         if self.worker:
             pass
@@ -312,7 +394,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
     @thread_worker
     def run_salami(self):
 
-        yield run_salami(self.microscope, self.settings, self.salami_settings, parent_ui=self)
+        yield run_salami(self.microscope, self.settings, self.exp.settings, parent_ui=self)
 
     def salami_finished(self):
         self.label_ui_status.setText("Finished.")
@@ -379,12 +461,6 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
 
             # disable ui elements that are not used in salami
             self.disable_ui_elements()
-
-            # load default protocol
-            self.settings.protocol = futils.load_protocol(cfg.PROTOCOL_PATH)
-
-            # set values from protocol
-            self.update_ui_from_protocol()
 
         else:
             if self.image_widget is None:

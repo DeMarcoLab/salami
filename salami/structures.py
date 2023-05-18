@@ -13,6 +13,8 @@ from fibsem.structures import (
     Point,
 )
 from fibsem.patterning import FibsemMillingStage
+import os
+import yaml
 
 # create a named tuple, image, beam, detector
 
@@ -25,9 +27,9 @@ class SalamiImageSettings:
     def __to_dict__(self):
             
             return {
-                "image": self.image.__to_dict__(),
-                "beam": self.beam.__to_dict__(),
-                "detector": self.detector.__to_dict__(),
+                "image": self.image.__to_dict__() if self.image is not None else None,
+                "beam": self.beam.__to_dict__() if self.beam is not None else None,
+                "detector": self.detector.__to_dict__() if self.detector is not None else None,
             }
     
     @classmethod
@@ -45,17 +47,23 @@ class SalamiSettings:
     n_steps: int = 10
     step_size: float = 100e-9
     image: list[SalamiImageSettings] = None
-    mill: FibsemMillingStage = None
+    mill: FibsemMillingStage = FibsemMillingStage()
     _align: bool = True
     _milling: bool = True
     _neutralise: bool = True
+
+
+    # post init
+    def __post_init__(self):
+        if self.image is None:
+            self.image = []
 
     def __to_dict__(self):
 
         return {
             "n_steps": self.n_steps,
             "step_size": self.step_size,
-            "image": [image.__to_dict__() for image in self.image],
+            "image": [image.__to_dict__() for image in self.image] if self.image is not None else None,
             "mill": self.mill.__to_dict__() if self.mill is not None else None,
             "_align": self._align,
             "_milling": self._milling,
@@ -82,8 +90,6 @@ class SalamiSettings:
         )
 
 
-import os
-import yaml
 
 
 class Experiment:
@@ -95,7 +101,7 @@ class Experiment:
             path=self.path, log_filename="logfile"
         )
 
-        self.settings: SalamiSettings = None
+        self.settings: SalamiSettings = SalamiSettings()
         self.positions: list[MicroscopeState] = []
 
     def __to_dict__(self) -> dict:

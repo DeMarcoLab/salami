@@ -1,0 +1,106 @@
+_align: false
+_milling: true
+_neutralise: false
+image:
+-   beam:
+        beam_current: 1.0e-12
+        beam_type: ELECTRON
+        dwell_time: 1.0e-06
+        hfw: 0.00015
+        resolution:
+        - 1536
+        - 1024
+        shift:
+            x: 0.0
+            y: 0.0
+        stigmation:
+            x: 0.0
+            y: 0.0
+        voltage: 2000.0
+        working_distance: 0.004
+    detector:
+        brightness: 0.5
+        contrast: 0.5
+        mode: SecondaryElectrons
+        type: ETD
+    image:
+        autocontrast: true
+        beam_type: ELECTRON
+        dwell_time: 1.0e-06
+        gamma_enabled: false
+        hfw: 0.00015
+        label: default_image
+        reduced_area: null
+        resolution:
+        - 1536
+        - 1024
+        save: false
+        save_path: /home/patrick/github/demo_2023-05-18-06-19-23PM
+-   beam:
+        beam_current: 2.0e-12
+        beam_type: ELECTRON
+        dwell_time: 1.0e-06
+        hfw: 0.00015
+        resolution:
+        - 1536
+        - 1024
+        shift:
+            x: 0.0
+            y: 0.0
+        stigmation:
+            x: 0.0
+            y: 0.0
+        voltage: 2000.0
+        working_distance: 0.005
+    detector:
+        brightness: 0.5
+        contrast: 0.5
+        mode: BackscatteredElectrons
+        type: TLD
+    image:
+        autocontrast: true
+        beam_type: ELECTRON
+        dwell_time: 1.0e-06
+        gamma_enabled: false
+        hfw: 0.00015
+        label: default_image
+        reduced_area: null
+        resolution:
+        - 1536
+        - 1024
+        save: false
+        save_path: /home/patrick/github/demo_2023-05-18-06-19-23PM
+mill:
+    milling:
+        application_file: Si
+        dwell_time: 1.0e-06
+        hfw: 0.00015
+        milling_current: 2.0e-11
+        patterning_mode: Serial
+        preset: ''
+        rate: 0.01
+        spot_size: 5.0e-08
+    name: Milling Stage 1
+    num: 1
+    pattern:
+        name: Rectangle
+        point:
+            x: 0.0
+            y: 0.0
+        protocol:
+            centre_x: 0.0
+            centre_y: 0.0
+            cleaning_cross_section: false
+            depth: 1.0e-06
+            height: 4.9999999999999996e-06
+            pattern: Rectangle
+            rotation: 0.0
+            scan_direction: TopToBottom
+            width: 9.999999999999999e-06
+        required_keys: !!python/tuple
+        - width
+        - height
+        - depth
+        - rotation
+n_steps: 10
+step_size: 1.5000000000000002e-07
