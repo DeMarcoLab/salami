@@ -118,7 +118,7 @@ class Experiment:
     def save(self) -> None:
         """Save the sample data to yaml file"""
 
-        with open(os.path.join(self.path, f"{self.name}.yaml"), "w") as f:
+        with open(os.path.join(self.path, f"experiment.yaml"), "w") as f:
             yaml.safe_dump(self.__to_dict__(), f, indent=4)
 
     def __repr__(self) -> str:
