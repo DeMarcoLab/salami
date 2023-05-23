@@ -1,8 +1,21 @@
 # salami
-salami is a python package for volume electron microscopy 
+salami is a python package for volume electron microscopy
 
-(Slice And Look At My Insides)
+![Logo](docs/img/logo.png)
 
+NB: this package is currently under development.
+
+## Overview
+
+Salami is a python package for volume electron microscopy. It is built on top of OpenFIBSEM and provides a user interface for segmentation and visualization. Salami is designed to be modular and extensible.
+
+Salami currently supports:
+- Multi imaging stages
+- Milling operation
+- Electron beam alignment
+- Charge neutralisation
+
+![UI](docs/ui.png)
 
 
 ## Getting Started
@@ -14,10 +27,18 @@ salami is a python package for volume electron microscopy
 3. Install Salami
 ```
 $ cd salami
-$ pip install -e. 
+$ pip install -e.
 ```
 
-4. Run viewer
+4. Run Salami
 ```
-$ salami_viewer
+$ salami_ui
 ```
+
+Once the UI opens, follow the instructions to get started.
+
+## Experimental
+
+Analysis tools are available in the denoise branch. This is experimental and not yet ready for general use. 
+
+Automated denoising and segmentation is available in the denoise branch. This is experimental and not yet ready for general use.

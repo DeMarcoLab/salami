@@ -131,4 +131,16 @@ dmypy.json
 
 .vscode/*
 salami/protocol/**/*.tif
+
+salami/*/denoising/*
+salami.code-workspace
+salami/*/raw_imgs/*
+demo_*/**/*
 salami/_version.py
+salami/protocol/salami_*
+denoising_*/*
+data/*
+salami/output/*
+salami/output2/**/*
+salami/notebook_test/*.png
+salami/log/*

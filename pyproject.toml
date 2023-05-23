@@ -1,0 +1,28 @@
+[build-system]
+requires = ["wheel", "setuptools>=45", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "salami/_version.py"
+
+[project]
+name = "salami"
+authors = [
+    {name = "Patrick Cleeve", email = "Patrick.Cleeve@monash.edu"},
+]
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+    ]
+dynamic = ["version", "description"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
+filterwarnings = "ignore::pytest.PytestCacheWarning"
