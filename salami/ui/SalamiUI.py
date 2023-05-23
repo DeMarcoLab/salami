@@ -28,6 +28,7 @@ INSTRUCTIONS = {
     "SETUP": "Instructions:\nPlease setup your experiment, imaging and milling settings.",
     "SETUP_IMAGING": "Instructions:\nPlease add/update an imaging stage.",
     "SETUP_MILLING": "Instructions:\nPlease add a milling stage.",
+    "ACQUIRE": "Instructions:\nPlease add at least one image with each beam.",
     "RUN": "Instructions:\nPress Run Salami to begin.",
 }
 
@@ -105,6 +106,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.checkBox_neutralise.stateChanged.connect(
             self.update_salami_settings_from_ui
         )
+        
 
     def set_stage_parameters(self):
         if self.microscope is None:
@@ -192,6 +194,12 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
 
         _valid_imaging = all(_valid_imaging) and len(_valid_imaging) > 0
         _valid_protocol = _valid_imaging and _valid_milling
+        
+        _valid_ui = False
+        if _microscope_connected:
+            _valid_ui = not(self.image_widget.ib_image is None and self.image_widget.eb_image is None)
+
+        _salami_ready = _valid_protocol and _valid_ui
 
         # instructions
         if not _experiment_loaded or not _microscope_connected:
@@ -202,6 +210,8 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
             self.label_instructions.setText(INSTRUCTIONS["SETUP_MILLING"])
         elif not _protocol_loaded or not _valid_protocol:
             self.label_instructions.setText(INSTRUCTIONS["SETUP"])
+        elif not _valid_ui:
+            self.label_instructions.setText(INSTRUCTIONS["ACQUIRE"])
         else:
             self.label_instructions.setText(INSTRUCTIONS["RUN"])
 
@@ -236,11 +246,8 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         )
 
         # buttons
-        self.pushButton.setEnabled(_valid_protocol)
-        if _valid_protocol:
-            self.pushButton.setStyleSheet("background-color: green")
-        else:
-            self.pushButton.setStyleSheet("background-color: none")
+        self.pushButton.setEnabled(_salami_ready)
+        self.pushButton.setStyleSheet("background-color: green" if _salami_ready else "background-color: orange")
 
     def _add_imaging_stage(self):
 
@@ -361,6 +368,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         self.exp = Experiment.load(fname=PATH)
 
         napari.utils.notifications.show_info(f"Loaded experiment {self.exp.name}")
+        self._update_combo_box()
         self.update_ui()
 
     def load_protocol(self):
@@ -527,6 +535,9 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
 
             # disable ui elements that are not used in salami
             self.disable_ui_elements()
+            
+            # connect signals
+            self.image_widget.picture_signal.connect(self.update_ui)
 
         else:
             if self.image_widget is None:
