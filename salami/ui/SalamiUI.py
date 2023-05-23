@@ -425,6 +425,8 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
         # self.update_salami_settings_from_ui()
         self.exp.save()
 
+
+
         if self.worker:
             pass
             # TODO: simplify
@@ -449,6 +451,10 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
 
     @thread_worker
     def run_salami(self):
+
+        # hard set the save paths to the experiment
+        for i in range(len(self.exp.settings.image)):
+            self.exp.settings.image[i].image.save_path = self.exp.path # TODO: get a more elegant solution for this
 
         yield run_salami(
             self.microscope, self.settings, self.exp.settings, parent_ui=self

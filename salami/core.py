@@ -78,6 +78,18 @@ def run_salami(
             img_settings.image.save_path = os.path.join(base_path, f"{j:03d}")
             os.makedirs(img_settings.image.save_path, exist_ok=True)
 
+            # TODO: make this more conveinent generally
+            # set beam settings
+            microscope.set("working_distance", img_settings.beam.working_distance, BeamType.ELECTRON)
+            microscope.set("current", img_settings.beam.beam_current, BeamType.ELECTRON)
+            microscope.set("stigmation", img_settings.beam.stigmation, BeamType.ELECTRON)
+            microscope.set("shift", img_settings.beam.shift, BeamType.ELECTRON)
+
+            # set detector settings
+            microscope.set("detector_type", img_settings.detector.type, BeamType.ELECTRON)
+            microscope.set("detector_mode", img_settings.detector.mode, BeamType.ELECTRON)
+
+            # set image settings
             img_settings.image.save = True
             img_settings.image.autocontrast = False
             img_settings.image.beam_type = BeamType.ELECTRON
