@@ -144,3 +144,4 @@ salami/output/*
 salami/output2/**/*
 salami/notebook_test/*.png
 salami/log/*
+**/wandb/*
