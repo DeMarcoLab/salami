@@ -386,7 +386,7 @@ class SalamiUI(SalamiUI.Ui_MainWindow, QtWidgets.QMainWindow):
             logging.info("No path selected")
             return
 
-        self.exp.settings = SalamiSettings.__from_dict__(futils.load_yaml(path=PATH))
+        self.exp.settings = SalamiSettings.__from_dict__(futils.load_yaml(PATH))
         napari.utils.notifications.show_info(
             f"Loaded Protocol from {os.path.basename(PATH)}"
         )
