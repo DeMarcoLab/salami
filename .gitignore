@@ -145,3 +145,5 @@ salami/output2/**/*
 salami/notebook_test/*.png
 salami/log/*
 **/wandb/*
+salami/example/*
+salami/example.zip
