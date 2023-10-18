@@ -4,19 +4,20 @@ from salami import analysis as sa
 import os
 import pandas as pd
 
-import plotly.express as px
+import plotly.express as plx
 st.set_page_config(layout="wide")
 
 def main():
 
     st.title("Salami Analysis")
 
-    px = st.selectbox("PX", [1536, 2*1536, 4*1536, 8*1536])
-    py = st.selectbox("PY", [1024, 2048, 4096, 8192, ])
-    dwell_time = st.selectbox("Dwell Time", [0.5, 1.0, 3.0, 5.0, 8.0])
+    cols = st.columns(3)
+    px = cols[0].selectbox("PX", [1536, 2*1536, 4*1536, 8*1536])
+    py = cols[1].selectbox("PY", [1024, 2048, 4096, 8192, ])
+    dwell_time = cols[2].selectbox("Dwell Time", [0.5, 1.0, 3.0, 5.0, 8.0])
 
     time = dwell_time * px * py / 1e6
-    st.write(f"Time: {time} s")
+    st.write(f"Time Taken Per Image: {time} s")
 
 
     DEFAULT_PATH = path = "/home/patrick/github/data/salami/analysis/2023-04-14-07-05-07PM/data"
@@ -66,7 +67,7 @@ def main():
     cols = st.columns(2)
 
     # plot 3d scatter plot with current, pixelsize and int_05 color by dwell time
-    fig = px.scatter_3d(df, x="current", 
+    fig = plx.scatter_3d(df, x="current", 
                         y="pixelsize", 
                         z="int_05", 
                         color="dwell_time", 
@@ -77,7 +78,7 @@ def main():
 
 
     # plot 3d scatter plot with current, pixelsize and int_0143 color by dwell time
-    fig = px.scatter_3d(df, x="current", 
+    fig = plx.scatter_3d(df, x="current", 
                         y="pixelsize", 
                         z="int_0143", 
                         color="dwell_time", 
@@ -87,7 +88,7 @@ def main():
     cols[1].plotly_chart(fig)
 
 
-    fig = px.line(df, x="pixelsize", y="int_05", 
+    fig = plx.line(df, x="pixelsize", y="int_05", 
               color="dwell_time", 
               facet_col="current",
             #   line_group="current",
@@ -99,7 +100,7 @@ def main():
 
     cols[0].plotly_chart(fig)
 
-    fig = px.line(df, x="pixelsize", y="int_0143", 
+    fig = plx.line(df, x="pixelsize", y="int_0143", 
                 color="dwell_time", 
                 facet_col="current",
                 # line_group="current",
@@ -133,7 +134,7 @@ def main():
         mean_metric = np.mean(metrics, axis=0)
 
         x = np.array(range(len(mean_metric))) / val
-        fig = px.line(x=x, y=mean_metric)
+        fig = plx.line(x=x, y=mean_metric)
         fig.update_layout(title=f"{col} {val}")
         st.plotly_chart(fig)
 
